@@ -876,7 +876,8 @@ def calc_monthly_peaks(ds:pd.Series,peak_begin:int,peak_end:int) -> pd.Series:
         for month in ds_year.index.month.unique():
             ds_month = ds_year[ds_year.index.month==month]
             idx = [peak_begin<=h<peak_end for h in ds_month.index.hour]
-            r.loc[len(r)] = [ds_month[idx].max().round(1),ds_month[idx].idxmax()]
+            r.loc[len(r)] = [round(ds_month[idx].max(),1),
+                             ds_month[idx].idxmax()]
     return r
 
 

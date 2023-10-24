@@ -2,7 +2,8 @@
 """
 import math
 import pandas as pd
-from _utils import *
+#from _utils import *
+from data_processing import *
 
 def net_load_peak_reduction_variable_TOU(df,angle1,angle2):
     all_results = pd.DataFrame(columns=['TOU begin [h]',
@@ -20,9 +21,9 @@ def net_load_peak_reduction_variable_TOU(df,angle1,angle2):
                                   axis=1)
                 peaks['peak_reduction'] = peaks[f'netload_{angle1} kw'] - peaks[f'netload_{angle2} kw']
                 
-                pr_max = peaks.peak_reduction.max().round(1)
-                pr_avg = peaks.peak_reduction.mean().round(1)
-                pr_min = peaks.peak_reduction.min().round(1)
+                pr_max = round(peaks.peak_reduction.max(),1)
+                pr_avg = round(peaks.peak_reduction.mean(),1)
+                pr_min = round(peaks.peak_reduction.min(),1)
                 #print(f'{peak_begin:3d} {peak_end:3d} -- {pr_max:7.2f} {pr_avg:7.2f} {pr_min:7.2f}')
                 all_results.loc[len(all_results)] = [peak_begin,peak_end,pr_max,pr_avg,pr_min]
                 #results

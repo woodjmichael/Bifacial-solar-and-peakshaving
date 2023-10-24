@@ -1,4 +1,6 @@
 /Data/*
 /Output/*
+/Archive/*
 CFshape.csv
 r.csv
+/__pycache__/*
