@@ -1,14 +1,14 @@
 # Abstract
 
+This work considers both distributed generation and peak shaving, and especially the dynamics between each in the specific example of distributed solar photovoltaic (PV) and battery peak shaving.
+
 # Introduction
 
 ## Why peak load
 
-The world right now requires a quick and efficient transition of most energy usage to electric and most energy production to renewable sources. With this changing energy paradigm will come a larger emphasis on peak load management. Electric load growth from equipment like EV charging and heat pumps will likely out pace distribution capacity growth in many areas. 
+The renewable energy transition will oversee a global shift toward electric energy consumption and renewable electric energy production in the coming decades. Since most electric transmission and distribution networks were previously built slowly over the span of many decades, electric load growth will almost definitely outpace network upgrades. And where these upgrades are completed they are necessarily an additional cost paid by all electricity consumers, due to the decrease in the load factor. Furthermore in some markets where companies can own both generation and distribution, business-as-usual infrastructure upgrades may be prioritized over the new construction of more complex and financially risky renewable generators. So while there are some creative solutions around dynamic capacity limits, two important solution areas for overall deployment speed, cost effectiveness, and overall decarbonization goals are (a) more local energy production and (b) increasing the load factor. 
 
-Public EV chargers may especially suffer from a low load factor due to the convenience of fast charging at high power. Heat pump load factor may be increased with architectural features such as insulation and thermal storage, but worsening extreme weather events and challenges to building efficiency retrofits will mean this can not be achieved everywhere. And relative to the marginal cost of additional kWh of energy, the marginal cost of additional kW of peak power is quite expensive because it necessarily requires new grid infrastructure like transformers and lines.
-
-Distribution and transmission companies are well aware of this problem, but infrastructure upgrades are often slowed down by regulation and permitting. In regulatory areas where companies can own both generation and distribution, business-as-usual grid upgrades may be prioritized over construction of new renewable generation, which can often be complex projects with more difficult permitting and less certain returns. Largely due to these factors consumer prices on monthly and annual peak load are generally increasing around the world.
+Electric vehicle (EV) charging and electric heating and cooling, including traditional air conditioning and heat pumps, are two common new loads that will strain networks in most countries. Heat pump and air conditioning load factor may be increased with architectural features such as insulation and thermal storage, but building retrofits are often slowed down due to permitting and other challenges. Meanwhile extreme weather events, especially heat waves, will likely further reduce the load factor of these devices. Many EV users will choose to slowly charge overnight at home for convenience and to minimize their energy cost. However workplace, fleet, and public EV charging stations will likely still be required, and these may especially suffer from a low load factor due to the convenience or need of fast charging at high power. 
 
 ## Peak shaving
 
@@ -70,9 +70,54 @@ Solar contributes significantly to the load, but once the peak period begins the
 | Valid times of day              | All                    | Limited (e.g. 16:00 to 21:00)  |
 | Peak is reset every..           | Never                  | Month, year, day (typical)     |
 
-
-
 # Methodology
+
+The methodology of this study is an offline simulation of EV load power measurements and modelled solar PV production power. The true EV charging station has no co-located solar PV, but with some basic assumptions we calculate what the net load (true load less co-located solar PV) would be at the point of connection to the distribution grid: the electric meter. Then we apply a typical electric tariff which includes different prices for three different time-of-use (TOU) periods of the day. Each TOU period has both an energy price ($\$/kWh$) and power or demand price ($\$/kW$). Here a demand price is understood as a $\$/kW$ price applied to the monthly maximum power observed at the meter, calculated as the 15-minute average of real power. Since the solar data is modelled rather than measured we can consider different sizes of solar plants.
+
+With the net load power timeseries built, we choose a battery capacity to use for the peak shaving simulations. There are many strategies for optimal battery sizing in this scenario, but in this work the emphasis is much more on understanding the benefit of different solar configurations for peak shaving using storage batteries. Therefore several different battery sizes are compared, but no single one is declared optimal.
+
+In the last part of the methodology, an optimal peak shaving strategy is used to minimized the power cost to the EV charging station, given a certain solar PV configuration and a storage battery capacity. The strategy always assumes a net load threshold for each TOU period of the day. The battery will charge and discharge within its technical limits to maintain the net load under the threshold. Done successfully, the threshold is also the effective demand power of the month for that TOU period. If the battery power is limited by the technical limits and the net load exceeds a threshold, the peak shaving simulation is not necessarily invalid, but that simulation is not likely to represent a minimum cost.
+
+Given the demand thresholds the dispatch simulation logic is simple:
+
+```mermaid
+graph LR
+NetLoad["Net load <br> NL(t)"] --> D{"NL(t) >T ?"}
+Threshold["Threshold <br> T(t)"] --> D
+D -->|"yes"| Bd["Batt discharge<br>Bd = NL(t) - T"]
+D -->|"no"| Bc["Batt charge<br>Bc = T - NL(t)"]
+D -->|"="| B["Battery power 0"]
+
+```
+
+The optimal demand thresholds (one per TOU period) are determined by an optimization. The thresholds are different for each month. The cost function of the optimization is simply the power cost incurred to the EV charging site in one month if the peak shaving dispatch strategy is followed with the given demand threshold. The optimization is performed in three steps:
+
+1. A rough grid search calculates the cost at every permutation of threshold value from 0 kW to 100 kW, in increments of 10 kW (1331 objective function calls, 13 seconds)
+   - Example: $Cost_{RGS}=\$900\ at\ T_{RGS}=(30,20,0)$
+2. Beginning from the lowest cost thresholds of step 1, a fine grid search calculates the cost at every permutation of threshold from $T_{RGS} - 10 kW$ to $T_{RGS}+10kW$ in increments of 1 kW (1331 objective function calls, 13 seconds)
+   - Example: $Cost_{FGS} = \$800\ at\ T_{FGS} = (29,26,1)$
+3. Beginning from the lowest cost thresholds of step 2, a gradient descent optimizer modifies each of the three threshold values according to the gradient calculation and a learning rate (fixed at 0.01) until a stopping condition is met (typically 10-30 seconds)
+   - Example: $Cost^* = \$700\ at\ T^* = (28.284,25.773,1.903)$
+
+The Newton-Raphson gradient descent based optimization method is preferred over other linear programming because it does not require a strict mathematical problem formulation. With it we can solve for a month peak shaving simulation given any complex rate tariff with multiple and overlapping TOU prices, different prices for different days of week, and additional costs associated with daily or annual peaks. As long as the cost can be calculated, the optimal peak shaving thresholds can be discovered with this methodology if it can be shown to always converge to a global minimum. 
+
+[need some text about convergence and global minimum]
+
+## Data
+
+The measured EV load power is from a database of EV charging session data, called the Caltech Adaptive Charging Network. Each charging session provides timeseries active power, averaged over a 10 second interval. In the cases when actual timeseries data is not available for a session, the charging profile is estimated but the total energy delivered is the same. Sessions are summed up for each timestep, providing the total charging station load averaged over 15 minute intervals.
+
+The modelled PV production power begins life as satellite solar irradiance data from the US National Solar Resource Database (NSRDB), and is unique to the exact time and date rather than being typical meteorological year data. From this 
+
+| Data                            | Location                                       | Type             | Interval  | Length    | Min / Mean / Max | Source            |
+| ------------------------------- | ---------------------------------------------- | ---------------- | --------- | --------- | ---------------- | ----------------- |
+| EV load power<br />($kW$)       | Jet Propulsion Lab<br />Pasadena CA, USA       | Measured         | 10 sec    | 14 months | 0 / ? / ?        | Caltech ACN       |
+| Solar irradiance<br />($W/m^2$) | GPS: 34.2013, -118.1721<br />(2 x 2 km square) | Satellite (GOES) | 5 minute  | 14 months |                  | NSRDB PSMv3       |
+| Solar PV power<br />($kW$)      | --                                             | Modelled         | 15 minute | 14 months |                  | SAM (Gilman 2015) |
+
+
+
+## Simulation
 
 ```mermaid
 graph TD
