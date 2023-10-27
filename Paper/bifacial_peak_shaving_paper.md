@@ -103,8 +103,6 @@ The optimal demand thresholds (one per TOU period) are determined by an optimiza
 
 The Newton-Raphson gradient descent based optimization method is preferred over other linear programming because it does not require a strict mathematical problem formulation. With it we can solve for a month peak shaving simulation given any complex rate tariff with multiple and overlapping TOU prices, different prices for different days of week, and additional costs associated with daily or annual peaks. As long as the cost can be calculated, the optimal peak shaving thresholds can be discovered with this methodology if it can be shown to always converge to a global minimum. 
 
-[need some text about convergence and global minimum]
-
 ## Battery Sizing
 
 The objective of this work is not to perform optimal sizing of the storage battery. However to understand the dynamics of the peak shaving algorithm it is helpful to perform a sensitivity analysis on the energy capacity of the battery, which here is done for several discrete sizes of battery which are in the table below. A simplifying assumption is that the power capacity (max kW) is determined from a max C-rate of 1C. 
@@ -164,9 +162,23 @@ NL --- A2 --> R2
 
 # Results
 
-The optimal peak shaving methodology 
+The peak shaving methodology produces an optimally low power (demand) cost for each simulated month, and the monthly costs are summed up for a total power cost for the data available as in Figure A. First we notice that larger battery sizes (Figure A) and the larger solar plant size (Figure A vs Figure B) always reduces the power cost, as expected. 
+
+The West 90 array achieves the lowest cost 
+
+The West 90 and South 20 / West 90 cases always reduce the power cost relative to the baseline South 20 solar array, but the cost reduction decreases with larger battery sizes. And while the West 90 solar orientation always achieves lower cost than the hybrid South 20 / West 90 array, the difference is not substantial. The magnitude (USD) of cost reduction is the most important metric because it can be directly considered as revenue in a cashflow analysis to determine the economic performance of the combined solar and battery systems. 
+
+
 
 ![total cost](bifacial_peak_shaving_paper.assets\total_cost_vs_batt_size.png)
+
+***Figure A: Total power cost with peak shaving (net zero solar case).** The optimal peak shaving simulation finds a total cost for all data provided, which decreases with battery energy capacity. The West 90 and South 20 / West 90 cases always find a lower cost than the South 20 base case, although the reduction in cost decreases with larger battery size. The West 90 case always has a larger cost reduction than the South 20 / West 90, but the difference is not substantial and also decreases with larger battery size.* 
+
+![total cost](.images/bifacial_peak_shaving_paper.assets/total_cost_vs_batt_size-16984199146641.png)
+
+**Figure B: Total power cost with peak shaving (2x solar case).** The optimal peak shaving simulation is also applied to a case study with a solar array which is double the capacity of the net zero one. The total cost values are somewhat lower than the net zero solar case, although the decrease is far from proportional. More interesting however is that the much larger solar capacity brings the three cases much closer together in their total costs, which is to say that the West 90 and South 20 / West 90 arrays cases are not benefitting as much from the late afternoon solar production due to the much larger quantity of midday solar production.
+
+
 
 | Battery Capacity (kWh) | South 20° <br />(Baseline) | West 90° | 50% South 20°<br />50% West 90° | West 90°<br />Reduction | 50% South 20°<br />50% West 90° <br />Reduction |
 | ---------------------: | -------------------------: | -------: | ------------------------------: | ----------------------: | ----------------------------------------------- |
