@@ -247,7 +247,8 @@ def calc_power_cost(ds:pd.Series,tou:list,peak_interval_min:int=60)->float:
     cost = 0
     for tou_level in tou:
         price,hours = tou_level['price'],tou_level['hours']
-        cost += ds[[True if h in hours else False for h in ds.index.hour]].max() * price
+        max_power = ds[[True if h in hours else False for h in ds.index.hour]].max()
+        cost += max(0,max_power) * price
     return cost
 
 

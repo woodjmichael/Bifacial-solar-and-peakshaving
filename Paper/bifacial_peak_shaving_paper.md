@@ -105,19 +105,34 @@ The Newton-Raphson gradient descent based optimization method is preferred over 
 
 [need some text about convergence and global minimum]
 
+## Battery Sizing
+
+The objective of this work is not to perform optimal sizing of the storage battery. However to understand the dynamics of the peak shaving algorithm it is helpful to perform a sensitivity analysis on the energy capacity of the battery, which here is done for several discrete sizes of battery which are in the table below. A simplifying assumption is that the power capacity (max kW) is determined from a max C-rate of 1C. 
+
+| Battery Sizes (kWh)                      |
+| ---------------------------------------- |
+| 25, 50, 75, 100, 125, 150, 200, 400, 600 |
+
+Exact alignment to commercially available battery sizes is not relevant, because the lack of standardization around energy and power capacity and the need of this study is only around sensitivity to change in capacity rather than precise a performance evaluation of a single battery and dispatch strategy.
+
 ## Data
 
 The measured EV load power is from a database of EV charging session data, called the Caltech Adaptive Charging Network. Each charging session provides timeseries active power, averaged over a 10 second interval. In the cases when actual timeseries data is not available for a session, the charging profile is estimated but the total energy delivered is the same. Sessions are summed up for each timestep, providing the total charging station load averaged over 15 minute intervals.
 
 The modelled PV production power begins life as GOES satellite solar irradiance data from the US National Solar Resource Database (NSRDB), and is unique to the exact time and date rather than being typical meteorological year data. Next the solar module power is estimated using the California Energy Commission Performance Model which is a 6-parameter physical PV cell model. Array power is estimated from an inverter efficiency lookup table in the NREL SAM database for the Enphase 390 W microinverter. All these functions are implemented in System Advisor Model v2022.11.21 (Gilman 2015). 
 
-| Description                                               | Location                                       | Type                                              | Interval                     | Min / Mean / Max | Source            |
-| --------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- | ---------------------------- | ---------------- | ----------------- |
-| EV load power<br />($kW$)                                 | Jet Propulsion Lab<br />Pasadena CA, USA       | Measured (14 months)                              | 10 sec (upsampled to 15 min) | 0 / ? / ?        | Caltech ACN       |
-| Solar irradiance<br />($W/m^2$)                           | GPS: 34.2013, -118.1721<br />(2 x 2 km square) | Satellite (GOES)                                  | 5 minute                     |                  | NSRDB PSMv3       |
-| Solar PV orientation South 20° ($kW$)                     | --                                             | Modelled (348 Prism Solar 350 W bifacial modules) | 15 minute                    |                  | SAM (Gilman 2015) |
-| Solar PV orientation West 90° ($kW$)                      | --                                             | Modelled (348 Prism Solar 350 W bifacial modules) | 15 minute                    |                  | SAM (Gilman 2015) |
-| Solar PV orientation: half West 90° half South 20° ($kW$) | --                                             | Modelled (348 Prism Solar 350 W bifacial modules) | 15 minute                    |                  | SAM (Gilman 2015) |
+| Description                                | Location                                       | Type                                              | Interval                     | Min / Mean / Max | Source            |
+| ------------------------------------------ | ---------------------------------------------- | ------------------------------------------------- | ---------------------------- | ---------------- | ----------------- |
+| EV load power timeseries<br />($kW$)       | Jet Propulsion Lab<br />Pasadena CA, USA       | Measured (14 months)                              | 10 sec (upsampled to 15 min) | 0 / ? / ?        | Caltech ACN       |
+| Solar irradiance timeseries<br />($W/m^2$) | GPS: 34.2013, -118.1721<br />(2 x 2 km square) | Satellite (GOES)                                  | 5 minute                     |                  | NSRDB PSMv3       |
+| Solar PV production timeseries ($kW$)      | --                                             | Modelled (368 Prism Solar 350 W bifacial modules) | 15 minute                    |                  | SAM (Gilman 2015) |
+
+## Case Studies
+
+| Name                   | South 20°                                      | West 90°                                      | South 20° West 90°                                           |
+| ---------------------- | ---------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------ |
+| Net zero sizing        | 368 bi-facial modules: azimuth=South, tilt=20° | 368 bi-facial modules: azimuth=West, tilt=90° | 184 bi-facial modules: azimuth=South, tilt=20°<br />184 bi-facial modules: azimuth=West, tilt=90° |
+| Double net zero sizing | 736 bi-facial modules: azimuth=South, tilt=20° | 736 bi-facial modules: azimuth=West, tilt=90° | 368 bi-facial modules: azimuth=South, tilt=20°<br />368 bi-facial modules azimuth=West, tilt=90° |
 
 
 
@@ -149,7 +164,31 @@ NL --- A2 --> R2
 
 # Results
 
+The optimal peak shaving methodology 
 
+![total cost](bifacial_peak_shaving_paper.assets\total_cost_vs_batt_size.png)
+
+| Battery Capacity (kWh) | South 20° <br />(Baseline) | West 90° | 50% South 20°<br />50% West 90° | West 90°<br />Reduction | 50% South 20°<br />50% West 90° <br />Reduction |
+| ---------------------: | -------------------------: | -------: | ------------------------------: | ----------------------: | ----------------------------------------------- |
+|                     25 |                    24720.0 |  22194.0 |                         22719.0 |                0.102184 | 0.080947                                        |
+|                     50 |                    18375.0 |  16034.0 |                         16544.0 |                0.127401 | 0.099646                                        |
+|                     75 |                    14601.0 |  12692.0 |                         13157.0 |                0.130744 | 0.098897                                        |
+|                    100 |                    12232.0 |  10400.0 |                         10671.0 |                0.149771 | 0.127616                                        |
+|                    125 |                     9979.0 |   8681.0 |                          8716.0 |                0.130073 | 0.126566                                        |
+|                    150 |                     8151.0 |   7724.0 |                          7078.0 |                0.052386 | 0.131640                                        |
+|                    200 |                     5915.0 |   6469.0 |                          5846.0 |               -0.093660 | 0.011665                                        |
+|                    400 |                     3988.0 |   4487.0 |                          4142.0 |               -0.125125 | -0.038616                                       |
+|                    600 |                     3010.0 |   3534.0 |                          3166.0 |               -0.174086 | -0.051827                                       |
+|                    800 |                     2334.0 |   2892.0 |                          2494.0 |               -0.239075 | -0.068552                                       |
+
+| Battery Capacity (kWh) | 2x South 20° <br />(Baseline) | 2x West 90° | 2x 50% South 20°<br />50% West 90° | 2x West 90°<br />Reduction | 2x 50% South 20°<br />50% West 90° <br />Reduction |
+| ---------------------: | ----------------------------: | ----------: | ---------------------------------: | -------------------------: | -------------------------------------------------- |
+|                     25 |                       22791.0 |     19334.0 |                            20604.0 |                   0.151683 | 0.095959                                           |
+|                     50 |                       16254.0 |     13044.0 |                            14155.0 |                   0.197490 | 0.129137                                           |
+|                     75 |                       12553.0 |      9835.0 |                            10867.0 |                   0.216522 | 0.134311                                           |
+|                    100 |                        9846.0 |      7374.0 |                             8223.0 |                   0.251066 | 0.164839                                           |
+|                    125 |                        7764.0 |      5603.0 |                             6250.0 |                   0.278336 | 0.195003                                           |
+|                    150 |                        6039.0 |      4250.0 |                             4711.0 |                   0.296241 | 0.219904                                           |
 
 # Conclusion
 
