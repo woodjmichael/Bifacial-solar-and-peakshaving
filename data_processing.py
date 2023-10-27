@@ -843,11 +843,11 @@ def order_of_magnitude(x:float)->int:
     return math.floor(math.log(x, 10))
 
 
-def upsample_df(df,periods,freq,method='ffill'):
+def upsample_ffill(df,periods,freq):
     df2 = pd.DataFrame([],index=pd.date_range(df.index[0],periods=periods,freq=freq))
     for col in df.columns:
         df2.loc[df.index,col] = df[col].values
-    df2 = df2.fillna(method=method)
+    df2 = df2.fillna(method='ffill')
     return df2
 
 
@@ -904,8 +904,8 @@ def plot_daily(ds:pd.Series,
     n_days = len(ds2)//(dpd)
     ds2 = ds2.iloc[:int(n_days*dpd)]
     
-    t = list(range(24)) # hours
-    plt.plot(t, ds2.values.reshape(n_days,dpd).T,alpha=alpha)
+    #t = list(range(24)) # hours
+    plt.plot(ds2.values.reshape(n_days,dpd).T,alpha=alpha)
     plt.ylabel(ds.name)
     plt.xlabel('Hours from 0:00')
     plt.title(title)
@@ -1010,7 +1010,7 @@ def plotly_stacked(_df:pd.DataFrame,
     if upsample_min is not None:
         freq_min = int(df.index.to_series().diff().dropna().mean().seconds/60)
         new_length = len(df) * (freq_min / upsample_min)
-        df = upsample_df(df,freq=f'{upsample_min}min',periods=new_length)
+        df = upsample_ffill(df,freq=f'{upsample_min}min',periods=new_length)
         
     # threshold vectors
     if threshold0 is not None:

@@ -78,17 +78,19 @@ With the net load power timeseries built, we choose a battery capacity to use fo
 
 In the last part of the methodology, an optimal peak shaving strategy is used to minimized the power cost to the EV charging station, given a certain solar PV configuration and a storage battery capacity. The strategy always assumes a net load threshold for each TOU period of the day. The battery will charge and discharge within its technical limits to maintain the net load under the threshold. Done successfully, the threshold is also the effective demand power of the month for that TOU period. If the battery power is limited by the technical limits and the net load exceeds a threshold, the peak shaving simulation is not necessarily invalid, but that simulation is not likely to represent a minimum cost.
 
-Given the demand thresholds the dispatch simulation logic is simple:
+Given the demand thresholds the dispatch simulation logic is simple, as in Figure D. 
 
 ```mermaid
 graph LR
 NetLoad["Net load <br> NL(t)"] --> D{"NL(t) >T ?"}
-Threshold["Threshold <br> T(t)"] --> D
+Threshold["Threshold<br>T"] --> D
 D -->|"yes"| Bd["Batt discharge<br>Bd = NL(t) - T"]
 D -->|"no"| Bc["Batt charge<br>Bc = T - NL(t)"]
 D -->|"="| B["Battery power 0"]
 
 ```
+
+*Figure D: Peak shaving dispatch. Net load is the timeseries of load less solar. There are three values of T, one for each TOU period. At any given time $t$ the net load is compared to the threshold, and the battery is discharged if the net load is greater than the threshold and charged if the net load is less than the threshold. If the two are equal the battery does nothing.*
 
 The optimal demand thresholds (one per TOU period) are determined by an optimization. The thresholds are different for each month. The cost function of the optimization is simply the power cost incurred to the EV charging site in one month if the peak shaving dispatch strategy is followed with the given demand threshold. The optimization is performed in three steps:
 
@@ -107,13 +109,15 @@ The Newton-Raphson gradient descent based optimization method is preferred over 
 
 The measured EV load power is from a database of EV charging session data, called the Caltech Adaptive Charging Network. Each charging session provides timeseries active power, averaged over a 10 second interval. In the cases when actual timeseries data is not available for a session, the charging profile is estimated but the total energy delivered is the same. Sessions are summed up for each timestep, providing the total charging station load averaged over 15 minute intervals.
 
-The modelled PV production power begins life as satellite solar irradiance data from the US National Solar Resource Database (NSRDB), and is unique to the exact time and date rather than being typical meteorological year data. From this 
+The modelled PV production power begins life as GOES satellite solar irradiance data from the US National Solar Resource Database (NSRDB), and is unique to the exact time and date rather than being typical meteorological year data. Next the solar module power is estimated using the California Energy Commission Performance Model which is a 6-parameter physical PV cell model. Array power is estimated from an inverter efficiency lookup table in the NREL SAM database for the Enphase 390 W microinverter. All these functions are implemented in System Advisor Model v2022.11.21 (Gilman 2015). 
 
-| Data                            | Location                                       | Type             | Interval  | Length    | Min / Mean / Max | Source            |
-| ------------------------------- | ---------------------------------------------- | ---------------- | --------- | --------- | ---------------- | ----------------- |
-| EV load power<br />($kW$)       | Jet Propulsion Lab<br />Pasadena CA, USA       | Measured         | 10 sec    | 14 months | 0 / ? / ?        | Caltech ACN       |
-| Solar irradiance<br />($W/m^2$) | GPS: 34.2013, -118.1721<br />(2 x 2 km square) | Satellite (GOES) | 5 minute  | 14 months |                  | NSRDB PSMv3       |
-| Solar PV power<br />($kW$)      | --                                             | Modelled         | 15 minute | 14 months |                  | SAM (Gilman 2015) |
+| Description                                               | Location                                       | Type                                              | Interval                     | Min / Mean / Max | Source            |
+| --------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- | ---------------------------- | ---------------- | ----------------- |
+| EV load power<br />($kW$)                                 | Jet Propulsion Lab<br />Pasadena CA, USA       | Measured (14 months)                              | 10 sec (upsampled to 15 min) | 0 / ? / ?        | Caltech ACN       |
+| Solar irradiance<br />($W/m^2$)                           | GPS: 34.2013, -118.1721<br />(2 x 2 km square) | Satellite (GOES)                                  | 5 minute                     |                  | NSRDB PSMv3       |
+| Solar PV orientation South 20° ($kW$)                     | --                                             | Modelled (348 Prism Solar 350 W bifacial modules) | 15 minute                    |                  | SAM (Gilman 2015) |
+| Solar PV orientation West 90° ($kW$)                      | --                                             | Modelled (348 Prism Solar 350 W bifacial modules) | 15 minute                    |                  | SAM (Gilman 2015) |
+| Solar PV orientation: half West 90° half South 20° ($kW$) | --                                             | Modelled (348 Prism Solar 350 W bifacial modules) | 15 minute                    |                  | SAM (Gilman 2015) |
 
 
 
@@ -143,13 +147,9 @@ NL --- A2 --> R2
 
 
 
-
-
-
-
-
-
 # Results
+
+
 
 # Conclusion
 

@@ -5,7 +5,19 @@ import pandas as pd
 #from _utils import *
 from data_processing import *
 
-def net_load_peak_reduction_variable_TOU(df,angle1,angle2):
+def net_load_peak_reduction_variable_TOU(df:pd.DataFrame,angle1:str,angle2:str)->pd.DataFrame:
+    """Calculate the reduction of peak net load for a range of TOU windows
+    
+    MAY NOT WORK CORRECTLY
+
+    Args:
+        df (pd.DataFrame): net load data
+        angle1 (str): reference angle (usually s20)
+        angle2 (str): comparison angle
+
+    Returns:
+        pd.DataFrame: results
+    """
     all_results = pd.DataFrame(columns=['TOU begin [h]',
                                         'TOU end [h]',
                                         'max peak reduction [kW]',
@@ -111,7 +123,7 @@ def peak_shaving_sim_old(df2,nl_col,threshold,soe0,TOU_hours,soe_max=None):
     
     return any( df2[[tou_first<=h<=tou_last for h in df2.index.hour]].utility>(threshold+tol) ), df2
 
-def peak_shaving_sim(df:pd.DataFrame,
+def peak_shaving_sim( df:pd.DataFrame,
                       netload_col:str,
                       soe_max:float,                      
                       thresholds:list=None,
@@ -122,10 +134,12 @@ def peak_shaving_sim(df:pd.DataFrame,
     """Simulate peak shaving battery dispatch
 
     Args:
-        ds_netload (pd.Series): net load vector
+        df (pd.DataFrame): load solar and netload data
+        netload_col (str): netload column name
+        soe_max (float): maximum battery state of energy
         thresholds (float): battery will be dispatched to keep import from utility below this value
             during threshold_h
-        soe_max (float): maximum battery state of energy
+        TOU (list of dicts): list of TOU dicts like {'price':float and 'hours':list of ints}
         soe0 (float): initial battery state of energy
         utility_chg_max (float, optional): max absolute value that battery will charge at during 
             non-TOU hours. Defaults to 0.
