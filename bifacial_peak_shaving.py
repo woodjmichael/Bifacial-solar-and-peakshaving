@@ -198,7 +198,6 @@ def peak_shaving_sim( df:pd.DataFrame,
         h_0,h_f = threshold2_h[0],threshold2_h[-1]
         failure = failure or any( df[[h_0<=h<=h_f for h in df.index.hour]].utility>(threshold2+tol) )
         
-
     return failure, df
 
 def find_smallest_soe0(df2,
@@ -251,6 +250,18 @@ def calc_power_cost(ds:pd.Series,tou:list,peak_interval_min:int=60)->float:
         cost += max(0,max_power) * price
     return cost
 
+def calc_cost(ds:pd.Series,tou:list,peak_interval_min:int=60)->float:
+    ds = ds.resample(f'{peak_interval_min}min').mean()
+    ds[ds<0] = 0
+    cost = 0
+    for tou_level in tou:
+        power_price = tou_level['power_price']
+        energy_price = tou_level['energy_price']
+        hours = tou_level['hours']
+        max_power = ds[[True if h in hours else False for h in ds.index.hour]].max()
+        energy    = ds[[True if h in hours else False for h in ds.index.hour]].resample('1h').mean().sum()
+        cost += max(0,max_power) * power_price + max(0,energy)*energy_price
+    return cost
 
 def f(thresholds,df_month,angle,batt_kwh,tou):
     th0,th1,th2 = thresholds
@@ -260,7 +271,7 @@ def f(thresholds,df_month,angle,batt_kwh,tou):
                                     [th0,th1,th2],
                                     tou,
                                     utility_chg_max=batt_kwh,)                
-    cost = calc_power_cost(dispatch.utility,tou)
+    cost = calc_cost(dispatch.utility,tou)
     return cost,fail,dispatch
 
 def grad_f(th_i,df_month,angle,batt_kwh,tou):

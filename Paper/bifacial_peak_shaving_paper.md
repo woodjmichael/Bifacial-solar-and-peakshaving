@@ -1,6 +1,6 @@
 # Abstract
 
-This work considers both distributed generation and peak shaving, and especially the dynamics between each in the specific example of distributed solar photovoltaic (PV) and battery peak shaving.
+--
 
 # Introduction
 
@@ -178,29 +178,30 @@ The West 90 and South 20 / West 90 cases always reduce the power cost relative t
 
 **Figure B: Total power cost with peak shaving (2x solar case).** The optimal peak shaving simulation is also applied to a case study with a solar array which is double the capacity of the net zero one. The total cost values are somewhat lower than the net zero solar case, although the decrease is far from proportional. More interesting however is that the much larger solar capacity brings the three cases much closer together in their total costs, which is to say that the West 90 and South 20 / West 90 arrays cases are not benefitting as much from the late afternoon solar production due to the much larger quantity of midday solar production.
 
+| Battery Capacity (kWh) | South 20° <br />(Baseline) | West 90° | 50% South 20°<br />50% West 90° | West 90°<br />Reduction | 50% South 20°<br />50% West 90° <br />Reduction | West 90°<br />Reduction<br />% | 50% South 20°<br />50% West 90° <br />Reduction % |
+| ---------------------: | -------------------------: | -------: | ------------------------------: | ----------------------: | ----------------------------------------------: | -----------------------------: | ------------------------------------------------: |
+|                     25 |                    29588.0 |  29221.0 |                         29133.0 |                   367.0 |                                           455.0 |                           1.24 |                                              1.53 |
+|                     50 |                    23747.0 |  22972.0 |                         22876.0 |                   775.0 |                                           871.0 |                           3.26 |                                              3.66 |
+|                     75 |                    19797.0 |  18721.0 |                         19058.0 |                  1076.0 |                                           739.0 |                           5.43 |                                              3.73 |
+|                    100 |                    16230.0 |  15495.0 |                         15279.0 |                   735.0 |                                           951.0 |                           4.52 |                                              5.85 |
+|                    125 |                    13388.0 |  12682.0 |                         12454.0 |                   706.0 |                                           934.0 |                           5.27 |                                              6.97 |
+|                    150 |                    11155.0 |  11112.0 |                         10519.0 |                    43.0 |                                           636.0 |                           0.38 |                                              5.70 |
+|                    200 |                     8445.0 |   8715.0 |                          8017.0 |                  -270.0 |                                           428.0 |                          -3.19 |                                              5.06 |
+|                    400 |                     4850.0 |   5372.0 |                          5024.0 |                  -522.0 |                                          -174.0 |                         -10.76 |                                             -3.58 |
+|                    600 |                     3694.0 |   4180.0 |                          3807.0 |                  -486.0 |                                          -113.0 |                         -13.15 |                                             -3.05 |
 
+Table C: Battery size sensitivity analysis for each of the two solar configuration cases, standard rate tariff
 
-| Battery Capacity (kWh) | South 20° <br />(Baseline) | West 90° | 50% South 20°<br />50% West 90° | West 90°<br />Reduction | 50% South 20°<br />50% West 90° <br />Reduction |
-| ---------------------: | -------------------------: | -------: | ------------------------------: | ----------------------: | ----------------------------------------------- |
-|                     25 |                    24720.0 |  22194.0 |                         22719.0 |                0.102184 | 0.080947                                        |
-|                     50 |                    18375.0 |  16034.0 |                         16544.0 |                0.127401 | 0.099646                                        |
-|                     75 |                    14601.0 |  12692.0 |                         13157.0 |                0.130744 | 0.098897                                        |
-|                    100 |                    12232.0 |  10400.0 |                         10671.0 |                0.149771 | 0.127616                                        |
-|                    125 |                     9979.0 |   8681.0 |                          8716.0 |                0.130073 | 0.126566                                        |
-|                    150 |                     8151.0 |   7724.0 |                          7078.0 |                0.052386 | 0.131640                                        |
-|                    200 |                     5915.0 |   6469.0 |                          5846.0 |               -0.093660 | 0.011665                                        |
-|                    400 |                     3988.0 |   4487.0 |                          4142.0 |               -0.125125 | -0.038616                                       |
-|                    600 |                     3010.0 |   3534.0 |                          3166.0 |               -0.174086 | -0.051827                                       |
-|                    800 |                     2334.0 |   2892.0 |                          2494.0 |               -0.239075 | -0.068552                                       |
+| Solar Capacity (% of net zero) | Best s20->w90 Reduction [\$,%] (Batt [kWh]) | Best s20->s20w90 Reudction [\$,%] (Batt [kWh]) |
+| ------------------------------ | ------------------------------------------ | --------------------------------------------- |
+| 50%                            | 183, 0.6% (25)                             | 360, 1.1% (25)                                |
+| 100%                           | 1076, 5.4% (75)                            | 951, 5.9% (100)                               |
+| 125%                           | 1158, 7.0% (75)                            | 1091, 5.6% (75)                               |
+| 150%                           | 1527, 7.9% (75)                            | 1281, 8.4% (100)                              |
+| 175%                           | 1621, 13.5% (125)                          | 1668, 13.9% (125)                             |
+| 200%                           | 1618, 13.9% (125)                          | 1656, 14.2% (125)                             |
 
-| Battery Capacity (kWh) | 2x South 20° <br />(Baseline) | 2x West 90° | 2x 50% South 20°<br />50% West 90° | 2x West 90°<br />Reduction | 2x 50% South 20°<br />50% West 90° <br />Reduction |
-| ---------------------: | ----------------------------: | ----------: | ---------------------------------: | -------------------------: | -------------------------------------------------- |
-|                     25 |                       22791.0 |     19334.0 |                            20604.0 |                   0.151683 | 0.095959                                           |
-|                     50 |                       16254.0 |     13044.0 |                            14155.0 |                   0.197490 | 0.129137                                           |
-|                     75 |                       12553.0 |      9835.0 |                            10867.0 |                   0.216522 | 0.134311                                           |
-|                    100 |                        9846.0 |      7374.0 |                             8223.0 |                   0.251066 | 0.164839                                           |
-|                    125 |                        7764.0 |      5603.0 |                             6250.0 |                   0.278336 | 0.195003                                           |
-|                    150 |                        6039.0 |      4250.0 |                             4711.0 |                   0.296241 | 0.219904                                           |
+Table D: Solar capacity sensitivity analysis fo
 
 # Conclusion
 
