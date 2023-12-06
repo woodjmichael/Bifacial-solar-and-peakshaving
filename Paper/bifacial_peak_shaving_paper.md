@@ -14,34 +14,42 @@ Electric vehicle (EV) charging and electric heating and cooling, including tradi
 
 Peak load management, or peak shaving, essentially requires choosing a power threshold and holding the load power below it. Controllable loads, energy storage, or generation assets behind the billing meter can all be used to reduce the load power to the threshold power. The threshold may only apply for only certain time periods. There may be multiple thresholds and periods each day, month, or year. There are two general cases of peak shaving worth considering. The most generation formulation of peak shaving control is formulated in Equation 1.
 $$
-(1)\ I_{load,t} - \Sigma_i I_{gen,i,t} - \Sigma_j I_{gen\uarr,j,t} - \Sigma_k I_{load\darr,k,t} < I_{threshold,t} \\
+\begin{equation}
+\begin{split}
+I_{threshold,t} &> I_{j,t} - \Sigma_i I_{gen,i,t} - \Sigma_j I_{gen\uarr,j,t} - \Sigma_k I_{load\darr,k,t}  \\
 \\
-\text{where:} \\
-i=\text{generation asset with no flexibility} \\
-j=\text{generation asset with upward flexibility} \\
-k=\text{controllable load asset with downward flexibility} \\
-t=\text{relevant timesteps}
+&\text{where:} \\
+&i\text{ is generation asset with no flexibility} \\
+&j\text{ is generation asset with upward flexibility} \\
+&k\text{ is controllable load asset with downward flexibility} \\
+&t\text{ is relevant timesteps}
+\end{split}
+\end{equation}
 $$
 
 Here we consider the case of no controllable load, a single battery, solar which reduces the site load, and all values in units of average real power over the interval $\Delta h = 1\ hour$. 
 $$
-(2)\ P_{load,h} - P_{solar,h} - P_{batt,discharge,h} + P_{batt,charge,h}  < P_{threshold,h} \\
-\\
-\text{where:} \\
-P_{batt,discharge,h} \ge 0 \\
-P_{batt,charge,h} \le 0 \\
-h \in \{0,1,2,...23\} \\
+\begin{equation}
+\begin{split}
+P_{threshold,h} &> P_{load,h} - P_{solar,h} - P_{batt,discharge,h} + P_{batt,charge,h}   \\
+P_{batt,discharge,h} &\ge 0 \\
+P_{batt,charge,h} &\le 0 \\
+h &\in \{0,1,2,...23\} \\
+\end{split}
+\end{equation}
 $$
 
-## Technical case
+### Technical
 
-Technical peak shaving refers to the case where a load must operate under a technical limitation such as a maximum power agreement or distribution transformer size. The load power must remain under the threshold at all times, otherwise there may be a technical failure such an activated overcurrent protection. Even if the load is technically able to rise above the threshold, doing so may violate a contract regarding maximum load power. The important consideration is that the economic cost of failure to hold the load under the threshold is prohibitively high. The time resolution of technical peak shaving control and modeling may need to be as low as seconds or milliseconds. Although this may be a challenging problem if the current limit is dynamically set or if a larger network is considered, from the perspective of dispatching the assets to shave the peak the problem is a relatively simple one: economic dispatch such that the the load current remains below the threshold current. Technical peak shaving might be performed on current or apparent power rather than active power.<img src="./bifacial_peak_shaving_paper.assets/tech_shaving.png" alt="The threshold is 20 kW. The battery begins the day full at 100 kWh. By 8:00 the load has increased above the threshold to 25 kW, but solar has also increased to 9 kW, so the site load is still below the threshold. However at 9:00 the battery must discharge at 13 kW to reduce to site load to 20 kW. At 12:00 the battery can recharge somewhat due to an increase in solar and slight decrease in load. Then by 18:00 the load is less than the threshold and the battery can recharge, increasing the site load up to the threshold."/>
+Technical peak shaving refers to the case where a load must operate under a technical limitation such as a maximum power agreement or distribution transformer size. The load power must remain under the threshold at all times, otherwise there may be a technical failure such an activated overcurrent protection. Even if the load is technically able to rise above the threshold, doing so may violate a contract regarding maximum load power. The important consideration is that the economic cost of failure to hold the load under the threshold is prohibitively high. The time resolution of technical peak shaving control and modeling may need to be as low as seconds or milliseconds. Although this may be a challenging problem if the current limit is dynamically set or if a larger network is considered, from the perspective of dispatching the assets to shave the peak the problem is a relatively simple one: economic dispatch such that the the load current remains below the threshold current. Technical peak shaving might be performed on current or apparent power rather than active power.
+
+<img src="./bifacial_peak_shaving_paper.assets/tech_shaving.png"/>
 
 > *Figure A: The threshold is 20 kW. The battery begins the day full at 100 kWh. By 8:00 the load has increased above the threshold to 25 kW, but solar has also increased to 9 kW, so the site load is still below the threshold. However at 9:00 the battery must discharge at 13 kW to reduce to site load to 20 kW. At 12:00 the battery can recharge somewhat due to an increase in solar and slight decrease in load. Then by 18:00 the load is less than the threshold and the battery can recharge, increasing the site load up to the threshold.*
 
 An example of technical peak shaving with a threshold of 20 kW is seen in Figure A. The actual load climbs well above the threshold, but the solar energy for that day reduces the site load considerably. Battery discharge is required in the morning and afternoon to keep the site load below the threshold, with some opportunistic midday charging. The battery recharges in the evening and overnight.   
 
-## Economic case
+### Economic
 
 Rather, economic peak shaving aims to reduce what a consumer pays for power and possibly also energy. Medium and large electric consumers often pay a price on energy (€$/kWh$) and a price on power (€$/kWh_{peak}$), or demand charge. The energy cost (€$/kWh \times E_{consumed}$) may vary with time of day, day of week, and season of the year, which is often referred to as time of use or peak pricing. Where there is a sufficient spread between the peak and off-peak prices there may be the opportunity to curtail load during high prices, use controllable loads to shift from a high price period to a lower one, or to use energy storage to buy energy at the lower price and reduce load during a higher price period. A peak shaving approach applied to the energy cost could be effective and maybe even advantageous. However there are several key differences between an energy based approach and a power one, where peak shaving is better suited for the latter.
 
@@ -81,17 +89,15 @@ The measured EV charging power ("load") is from the Caltech Adaptive Charging Ne
 
 ### Solar Production
 
-The modelled PV production power begins life as GOES satellite solar irradiance data from the US National Solar Resource Database (NSRDB), and is specific to the exact time and date rather as opposed to typical meteorological year data. Prism Solar 350 bi-facial solar module DC electrical power is estimated using the California Energy Commission Performance Model, a 6-parameter physical PV cell model. The full AC array power is estimated given loss assumptions and an inverter efficiency lookup table in the NREL SAM database for the Enphase 390 W microinverter. All these functions are implemented in System Advisor Model v2022.11.21 (Gilman 2015). 
+The modelled PV production power begins life as GOES satellite solar irradiance data from the US National Solar Resource Database (NSRDB), and is specific to the exact time and date rather as opposed to typical meteorological year data. Prism Solar 350 W bifacial solar module DC electrical power is estimated using the California Energy Commission Performance Model, a 6-parameter physical PV cell model. The full AC array power is estimated given loss assumptions and an inverter efficiency lookup table in the NREL SAM database for the Enphase IQH 380 W microinverter. All these functions are implemented in SAM v2022.11.21 (Gilman 2015). 
 
 Three different solar array orientations are modelled and simulated in different case studies. Each orientation has the same number and type of modules: all modules facing South at 20° tilt, all modules facing West at 90° tilt, and half the modules facing South at 20° tilt and half the modules facing West at 90° tilt. Tilt is defined as 90° minus the altitude angle of the normal vector of the primary active face of the module. No shading is considered. Of the two sides of the bi-facial module, the primary active face is oriented West since afternoon load is generally subject to higher prices.
 
-| Timeseries Description                                      | Location                                | Type                                                         | Interval / Length                                 | Total Energy / Solar Yield               | Source            |
-| ----------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------- | ---------------------------------------- | ----------------- |
-| EV charging power<br />($kW_{ac}$)                          | Jet Propulsion Lab, Pasadena CA, USA    | Measured and aggregated from multiple EV chargers at single site | 10 sec (average downsampled to 15 min) / 304 days | 154.968 $MWh$ / --                       | Caltech ACN       |
-| Solar irradiance <br />($W/m^2$)                            | GPS: 34.2013, -118.1721 (2x2 km square) | GOES satellite irradiance                                    | 5 minute / 304 days                               | -- / --                                  | NSRDB PSMv3       |
-| South 20° solar PV array production  ($kW_{ac}$)            | GPS: 34.2013, -118.1721 (2x2 km square) | Modelled from satellite irradiance, 368 modules facing south, tilt 20° | 15 minute / 304 days                              | 151.669 $MWh$ / 1180.8 $kWh \over kW_p$  | SAM (Gilman 2015) |
-| West 90° solar PV array production  ($kW_{ac}$)             | GPS: 34.2013, -118.1721 (2x2 km square) | Modelled from satellite irradiance, 368 modules facing west, tilt 90° | 15 minute / 304 days                              | 130.925 $MWh$ / 1019.3 $kWh \over kW_p$  | SAM (Gilman 2015) |
-| South 20° / West 90° solar PV array production  ($kW_{ac}$) | GPS: 34.2013, -118.1721 (2x2 km square) | Modelled from satellite irradiance, 184 modules facing south, tilt 20°, 184 modules facing west, tilt 90° | 15 minute / 304 days                              | 141.069 $MWh$ /  1098.2 $kWh \over kW_p$ | SAM (Gilman 2015) |
+| Timeseries Description             | Location                                | Type                                                         | Interval / Length                                 | Source            |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------- | ----------------- |
+| EV charging power<br />($kW_{ac}$) | Jet Propulsion Lab, Pasadena CA, USA    | Measured and aggregated from multiple EV chargers at single site | 10 sec (average downsampled to 15 min) / 304 days | Caltech ACN       |
+| Solar irradiance <br />($W/m^2$)   | GPS: 34.2013, -118.1721 (2x2 km square) | GOES satellite irradiance                                    | 5 minute / 304 days                               | NSRDB PSMv3       |
+| PV array production  ($kW_{ac}$)   | GPS: 34.2013, -118.1721 (2x2 km square) | Modelled from satellite irradiance, 368 Prism Solar 350 W bifacial modules, 368 Enphase IQH 380 W microinverters | 15 minute / 304 days                              | SAM (Gilman 2015) |
 
 > *Table C: Timeseries Data Summary. EV charging power is measured every 10 seconds for 304 days at the Jet Propulsion Laboratory, CA, USA. Solar irradiance from the GOES satellite is acquired for the same location. Solar PV array production is modelled from the satellite irradiance using a 6 parameter PV cell model and inverter efficiency lookup table.*
 
@@ -113,31 +119,40 @@ Each simulation assumed charge and discharge rate are limited to 1C, usable SOC 
 
 A typical California electric tariff is applied at the point of the retail electric meter, with several different TOU periods and prices. For the chosen tariff each TOU period may have an energy price ($\$/kWh$), a power price ($\$/kW$), or both. The prices may also change between seasons, and have long term trends like any retail electric prices. Here a price on power ("demand charge") is understood as a $\$/kW$ price applied to the monthly maximum power observed at the meter, calculated as the 15-minute average of real power. 
 
-| TOU Name        | TOU Period                            | Summer [\$]<br />Jun 1 - Sept 30 | Winter [\$]<br />Oct 1 - Feb 28 | Spring [\$]<br />Mar 1 - May 30 |
-| --------------- | ------------------------------------- | -------------------------------- | ------------------------------- | ------------------------------- |
-| All hours       | 0:00-0:00                             | 26.07 / kW                       | 26.07 / kW                      | 26.07 / kW                      |
-| Super off-peak  | 9:00-14:00                            | --                               | --                              | 0.079 / kWh                     |
-| Off-peak spring | 0:00-9:00, 14:00-16:00,<br>21:00-0:00 | --                               | --                              | 0.132 / kWh                     |
-| Off-peak winter | 0:00-16:00, 21:00-0:00                | --                               | 0.132 / kWh                     | --                              |
-| Off-peak summer | 0:00-14:00, 23:00-0:00                | 0.132 / kWh                      | --                              | --                              |
-| Partial-peak    | 14:00-16:00, 21:00-23:00              | 6.81 / kW<br />0.159 / kWh       | --                              | --                              |
-| Peak            | 16:00-21:00                           | 32.90 / kW<br />0.196 / kWh      | 2.22 / kW<br />0.172 / kWh      | 2.22 / kW<br />0.172 / kWh      |
+| Name            | TOU Period                            | Summer (Jun 1 - Sept 30) [\$] | Winter (Oct 1 - Feb 28) [\$] | Spring (Mar 1 - May 30) [\$] |
+| --------------- | ------------------------------------- | ---------------------------- | --------------------------- | --------------------------- |
+| All hours       | 0:00-0:00                             | 26.07 / kW                   | 26.07 / kW                  | 26.07 / kW                  |
+| Super off-peak  | 9:00-14:00                            | --                           | --                          | 0.079 / kWh                 |
+| Off-peak spring | 0:00-9:00, 14:00-16:00,<br>21:00-0:00 | --                           | --                          | 0.132 / kWh                 |
+| Off-peak winter | 0:00-16:00, 21:00-0:00                | --                           | 0.132 / kWh                 | --                          |
+| Off-peak summer | 0:00-14:00, 23:00-0:00                | 0.132 / kWh                  | --                          | --                          |
+| Partial-peak    | 14:00-16:00, 21:00-23:00              | 6.81 / kW,<br />0.159 / kWh  | --                          | --                          |
+| Peak            | 16:00-21:00                           | 32.90 / kW,<br />0.196 / kWh | 2.22 / kW,<br />0.172 / kWh | 2.22 / kW<br />,0.172 / kWh |
 
 > *Table B: Retail Electric Tariff. An applicable electric tariff schedule with seven different TOU periods for energy and power prices, varying by hours of the day and season of the year. From California PG&E.*
 
 The total retail electric cost $C$ for each month is then the sum of the energy cost and power cost for the month, where the energy and power costs are calculated separately for each TOU period. The energy cost is the energy delivered to the site multiplied by the energy price for that TOU period. The power cost is the maximum 15-minute average power for the month multiplied by the power price for that TOU period.
 
 $$
-NL(t) = L(t) - S(t) \\
-NL_{p}(t) = NL(t)\ \ \ \ \forall \ NL(t)>0 \\
-(3)\ C_m = \Sigma_k^K [ p_{p,k,m} max(NL_{p,k,m}) + p_{e,k,m} \Sigma (NL_{p,k,m}) ] \\
+\begin{equation}
+\begin{split}
+NL(t) &= L(t) - S(t) \\
+NL_{p}(t) &= NL(t),\ \forall \ NL(t)>0 \\
+B(t) &= B_d(t) - B_c(t) \\
+C_m &= \Sigma_k^K [ p_{p,k,m} max(NL_{p,k,m}-B) + p_{e,k,m} \Sigma (NL_{p,k,m}-B) ] \\
 \\
-\text{where:} \\
-C_m = \text{total retail electric cost for month}\ m\ (\$) \\
-NL_p = \text{positive net load values}\ (kW) \\
-p_{p,k,m} = \text{power price for TOU period}\ k\ \text{and month}\ m\  (\$/kW) \\
-p_{e,k,m} = \text{energy price for TOU period}\ k\ \text{and month}\ m\ (\$/kWh) \\
-K = \text{number of TOU periods}
+& \text{where:} \\
+&L \text{ is EV charging load}\ (kW) \\
+&S \text{ is solar production}\ (kW)\\
+&NL \text{ is net load}\ (kW) \\
+&B_c \text{ is battery charging power (non-negative)}\ (kW) \\
+&B_d \text{ is battery discharging power (non-negative)}\ (kW) \\
+&C_m \text{ is total retail electric cost for month}\ m\ (\$) \\
+&p_{p,k,m} \text{ is power price for TOU period}\ k\ \text{and month}\ m\  (\$/kW) \\
+&p_{e,k,m} \text{ is energy price for TOU period}\ k\ \text{and month}\ m\ (\$/kWh) \\
+&K \text{ is number of TOU periods}
+\end{split}
+\end{equation}
 $$
 
 
@@ -160,75 +175,93 @@ D -->|equal| B("Bc = Bd = 0")
 
 The peak shaving algorithm describes stepping through time and dispatching the battery according to power thresholds, but not how the thresholds are chosen. 
 
-### Optimization
+## Threshold Optimizer
 
-The optimal demand thresholds (one per TOU period) are determined by a custom gradient descent optimizer. The objective function $C$ minimizes the retail energy cost of one month, which is the billing interval of this retail electric tariff. In practice the optimal thresholds are different for each month. 
+The optimal demand thresholds (one per TOU period) are determined by a custom gradient descent optimizer. The objective function $C$ minimizes the retail energy cost of one month, which is the billing interval of this retail electric tariff. In practice the optimal thresholds are different for each month. The threshold for each TOU period $T_k$ is not enforced to be non-negative, but in practice is always is because the cost function $C_m()$ cannot evaluate to a negative value.
 
 $$
-min(C_m) \\
-s.t. \\
-B_c(t) \le B_{c,max} \forall t \\
-B_d(t) \le B_{d,max} \forall t \\
-SOC(t) \le SOC_{max} \forall t \\
-SOC(t) \ge SOC_{min} \forall t \\
+\begin{equation}
+\begin{split}
+min[C_m(B_c,B_d)] & = min[C_m(T_1,T_2,..T_K)] \\
+& s.t. \\
+B_c(t) & \le B_{c,max} \\
+B_d(t) & \le B_{d,max} \\
+SOC_{min} & \le SOC(t) \le SOC_{max} \\
+\\
+& \text{where:} \\
+B_c & \text{ is battery charge power timeseries}\ (kW) \\
+B_d & \text{ is battery discharge power timeseries}\ (kW) \\
+T_k & \text{ is threshold for}\ k\text{-th TOU period of}\ K\ \text{total periods} \\
+SOC & \text{ is battery state of charge timeseries}\ (\frac{kWh}{kWh}) \\
+\end{split}
+\end{equation}
 $$
 
 
-Beginning from an initial guess the Newton-Raphson gradient descent optimizer calculates the batch gradient and updates parameters based on a learning rate of 0.01. This continues until the stopping condition is met, minimum cost for a patience of 50 iterations. The Newton-Raphson gradient descent based optimization method is preferred over linear programming because it will minimize over a variety of cost functions without needing to reformulate the linear program. More powerful optimizers such as evolutionary algorithms would also be effective.
+Beginning from an initial guess the Newton-Raphson gradient descent optimizer calculates the batch gradient and updates parameters based on a learning rate of 0.01. This continues until the stopping condition is met, minimum cost for a patience of 50 iterations. The Newton-Raphson gradient descent based optimization method is preferred over linear programming because it will minimize over a variety of cost functions without needing to reformulate the linear program. 
 
 ## Simulations
 
+Simulations are run one month at a time for a given solar array orientation and battery capacity, according to the flowchart in Figure C. The computational environment is Python 3.8 in Windows 10 64-bit, on an Intel i9 CPU with 64 GB of RAM.
+
 ```mermaid
+%%{init: {'flowchart' : {'curve' : 'basis'}}}%%
 graph TD
-S(Choose Solar Orientation)
-ST(Solar Timeseries)
-LT(Charging Load Timeseries)
-NLT(Net Load Timeseries)
-B(Choose Battery Size)
-O(Threshold Optimizer)
+S(Choose Solar<br>Orientation)
+ST(Solar<br>Timeseries)
+LT(EV Charging Load<br>Timeseries)
+NLT(Net Load<br>Timeseries)
+B(Choose Battery<br>Size)
+O(Threshold<br>Optimizer)
 Sim(Simulate 1 Month<br>Peak Shaving)
 T(Thresholds)
-C(Cost)
+C(Total Electric<br>Cost)
+BT(Battery<br>Timeseries)
 
 S --> ST --> NLT 
-LT ---> NLT
-NLT --> O
-B --> O --> T --> Sim --> C
+LT --> NLT
+NLT --> O --> C
+B --> O --> T --> Sim --> BT
 
 NLT --> Sim
 B ------> Sim
 ```
 
-
-
-
+> Figure C: Simulation Flowchart. Given a solar orientation and chosen battery capacity, the net load timeseries is calculated from EV charging load and solar production. The threshold optimizer produces one threshold value (kW) for each TOU period with non-zero power prices. This returns both optimal thresholds and a minimum cost. Lastly a 1 month simulation of the battery charging and discharging is performed to ensure no violations of the battery technical limits, and to produce the battery power timeseries for evaluation.
 
 # Case Studies
 
-| Name                   | South 20°                                      | West 90°                                      | South 20° West 90°                                           |
-| ---------------------- | ---------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------ |
-| Net zero sizing        | 368 bi-facial modules: azimuth=South, tilt=20° | 368 bi-facial modules: azimuth=West, tilt=90° | 184 bi-facial modules: azimuth=South, tilt=20°<br />184 bi-facial modules: azimuth=West, tilt=90° |
-| Double net zero sizing | 736 bi-facial modules: azimuth=South, tilt=20° | 736 bi-facial modules: azimuth=West, tilt=90° | 368 bi-facial modules: azimuth=South, tilt=20°<br />368 bi-facial modules azimuth=West, tilt=90° |
+Three case studies are evaluated, each relating to the orientation of the solar array but not changing the overall $kWp$ capacity. All case studies use the Prism 350 W bifacial solar PV modules and the Enphase IQH 380 W microinverters. 
 
-> *Table D: Case Studies.*
+The first and baseline case is a South-facing array of 368 modules, tilted at 20˚. This is intended to be a typical rooftop solar plant, especially in northern latitudes where lower sun angles and winter snow make the research question of vertical bifacial modules even more relevant. The daily clearsky solar power curve is the familiar rounded triangle centered at solar noon. The array is sized such that the total energy produced is equal to the total energy consumption of the EV charging station. This "net zero" sizing is not necessarily economically optimal, but rather it is a reasonable or typical size solar plant for the load. 
+
+The second case instead orients the active high-power face of the bifacial module West and tilts the module vertically at 90˚. This is an extreme case, especially at this large number of modules, but should be investigated since it represents the maximum amount that the daily clearsky power curve can be pushed toward the morning and evening from solar noon, making a two-peaked M-shape curve.
+
+The third case only orients half the modules West and 90°, which is a linear combination of the first two cases and physically represents a more realistic physical design. The motivation for including this case in the investigation is that while the time of solar production is important for peak shaving, too much production in a small later afternoon window may not be well timed with the late afternoon peak and more energy overall would have been sufficient.
+
+| Case         | Orientation                                 | Tilt         | Total Energy <br />[$MWh$] | Solar Yield<br /> [$\frac{kWh}{kW_p}$] |
+| ------------ | ------------------------------------------- | ------------ | -------------------------- | -------------------------------------- |
+| 1 (baseline) | South (368 modules)                         | 20°          | 151.7                      | 1180.8                                 |
+| 2            | West (368 modules)                          | 90°          | 131.0                      | 1019.3                                 |
+| 3            | South (184 modules)<br />West (184 modules) | 20°<br />90° | 141.1                      | 1098.2                                 |
+
+> *Table D: Case Studies. All modules are the Prism 350 W bifacial. The baseline Case 1 is a South-facing array tilted to 20°. In Case 2 the primary high power surface faces West and the modules are tilted to 90°. In Case 3 half the array modules face West and are tilted at 90˚, and half the modules face South and are tilted at 20˚.*
 
 # Results
 
-The peak shaving methodology produces an optimally low power (demand) cost for each simulated month, and the monthly costs are summed up for a total power cost for the data available as in Figure A. First we notice that larger battery sizes (Figure A) and the larger solar plant size (Figure A vs Figure B) always reduces the power cost, as expected. 
+The peak shaving methodology produces an optimally low retail electric cost (demand) cost for each simulated month, and the monthly costs are summed up for a total power cost for the data available as in Figure A. First we notice that larger battery sizes (Figure A) and the larger solar plant size (Figure A vs Figure B) always reduces the power cost, as expected. 
 
 The West 90 array achieves the lowest cost 
 
 The West 90 and South 20 / West 90 cases always reduce the power cost relative to the baseline South 20 solar array, but the cost reduction decreases with larger battery sizes. And while the West 90 solar orientation always achieves lower cost than the hybrid South 20 / West 90 array, the difference is not substantial. The magnitude (USD) of cost reduction is the most important metric because it can be directly considered as revenue in a cashflow analysis to determine the economic performance of the combined solar and battery systems. 
 
+<img src="./.images/bifacial_peak_shaving_paper.assets/total retail.png" alt="image-20231206171536780" style="zoom: 67%;" /><img src="./.images/bifacial_peak_shaving_paper.assets/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 67%;" />
 
-
-![total cost](bifacial_peak_shaving_paper.assets\total_cost_vs_batt_size.png)
-
-***Figure A: Total power cost with peak shaving (net zero solar case).** The optimal peak shaving simulation finds a total cost for all data provided, which decreases with battery energy capacity. The West 90 and South 20 / West 90 cases always find a lower cost than the South 20 base case, although the reduction in cost decreases with larger battery size. The West 90 case always has a larger cost reduction than the South 20 / West 90, but the difference is not substantial and also decreases with larger battery size.* 
+>  ***Figure A: Total power cost with peak shaving (net zero solar case).** The optimal peak shaving simulation finds a total cost for all data provided, which decreases with battery energy capacity. The West 90 and South 20 / West 90 cases always find a lower cost than the South 20 base case, although the reduction in cost decreases with larger battery size. The West 90 case always has a larger cost reduction than the South 20 / West 90, but the difference is not substantial and also decreases with larger battery size.* 
 
 ![total cost](.images/bifacial_peak_shaving_paper.assets/total_cost_vs_batt_size-16984199146641.png)
 
-**Figure B: Total power cost with peak shaving (2x solar case).** The optimal peak shaving simulation is also applied to a case study with a solar array which is double the capacity of the net zero one. The total cost values are somewhat lower than the net zero solar case, although the decrease is far from proportional. More interesting however is that the much larger solar capacity brings the three cases much closer together in their total costs, which is to say that the West 90 and South 20 / West 90 arrays cases are not benefitting as much from the late afternoon solar production due to the much larger quantity of midday solar production.
+>  **Figure B: Total power cost with peak shaving (2x solar case).** The optimal peak shaving simulation is also applied to a case study with a solar array which is double the capacity of the net zero one. The total cost values are somewhat lower than the net zero solar case, although the decrease is far from proportional. More interesting however is that the much larger solar capacity brings the three cases much closer together in their total costs, which is to say that the West 90 and South 20 / West 90 arrays cases are not benefitting as much from the late afternoon solar production due to the much larger quantity of midday solar production.
 
 | Battery Capacity (kWh) | South 20° <br />(Baseline) | West 90° | 50% South 20°<br />50% West 90° | West 90°<br />Reduction | 50% South 20°<br />50% West 90° <br />Reduction | West 90°<br />Reduction<br />% | 50% South 20°<br />50% West 90° <br />Reduction % |
 | ---------------------: | -------------------------: | -------: | ------------------------------: | ----------------------: | ----------------------------------------------: | -----------------------------: | ------------------------------------------------: |
