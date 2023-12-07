@@ -1,6 +1,7 @@
 /Versions/*
 /Data/*
 /Archive/*
+/Paper/tex/*.png
 CFshape.csv
 r.csv
 /__pycache__/*

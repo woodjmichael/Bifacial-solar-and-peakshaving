@@ -43,7 +43,7 @@ $$
 
 Technical peak shaving refers to the case where a load must operate under a technical limitation such as a maximum power agreement or distribution transformer size. The load power must remain under the threshold at all times, otherwise there may be a technical failure such an activated overcurrent protection. Even if the load is technically able to rise above the threshold, doing so may violate a contract regarding maximum load power. The important consideration is that the economic cost of failure to hold the load under the threshold is prohibitively high. The time resolution of technical peak shaving control and modeling may need to be as low as seconds or milliseconds. Although this may be a challenging problem if the current limit is dynamically set or if a larger network is considered, from the perspective of dispatching the assets to shave the peak the problem is a relatively simple one: economic dispatch such that the the load current remains below the threshold current. Technical peak shaving might be performed on current or apparent power rather than active power.
 
-<img src="images/bifacial_peak_shaving_paper.assets/tech_shaving.png" style="zoom: 67%;" />
+<img src="images/tech_shaving.png" style="zoom: 67%;" />
 
 > *Figure A: The threshold is 20 kW. The battery begins the day full at 100 kWh. By 8:00 the load has increased above the threshold to 25 kW, but solar has also increased to 9 kW, so the site load is still below the threshold. However at 9:00 the battery must discharge at 13 kW to reduce to site load to 20 kW. At 12:00 the battery can recharge somewhat due to an increase in solar and slight decrease in load. Then by 18:00 the load is less than the threshold and the battery can recharge, increasing the site load up to the threshold.*
 
@@ -55,7 +55,7 @@ Rather, economic peak shaving aims to reduce what a consumer pays for power and 
 
 Instead, the power cost (€$/kW \times P_{max}$ ) typically applies to the max power during the billing period, where the peak power is the maximum non-moving average in a given period (e.g. 12:00-18:00 on weekdays) calculated on a given interval (e.g. 60 minutes). Similar to the energy cost, there may be multiple time of use periods and associated prices, such as peak, mid-peak, and off-peak. And where the spread price is sufficiently high, the period peak can be reduced with load curtailment or rescheduling, distributed generation such as solar, or energy storage.     
 
-<img src="images/bifacial_peak_shaving_paper.assets/econ_shaving.png" alt="technical peak shaving" style="zoom: 67%;" />
+<img src="images/econ_shaving.png" alt="technical peak shaving" style="zoom: 67%;" />
 
 > *Figure B: The threshold is comprised of two parts: Threshold0 at 20 kW from 12:00-18:00, and Threshold1 at 40 kW from 9:00-12:00 and 18:00-21:00. The battery begins the day full at 100 kWh. By 9:00 the load has increased above Threshold0, solar decreases this greatly, and the battery is discharged to further reduce the site load. However at 9:00 the battery must discharge at 13 kW to reduce to site load to 20 kW. At 11:00 and 12:00 the battery can recharge somewhat due to an increase in solar and slight decrease in load. Then by 18:00 the load is significantly less than the threshold and the battery can recharge, increasing the site load up to the threshold.*
 
@@ -251,11 +251,11 @@ The third case only orients half the modules West and 90°, which is a linear co
 
 The peak shaving methodology produces an optimally low retail electric cost for each of the 10 months of data, which are summed up for total electric cost in Figure A versus the battery capacity sensitivity analysis. The costs monotonically decrease with battery capacity as expected because every marginal unit of added battery energy capacity allows the algorithm to hold a power threshold for longer, and  since each battery is rated for 1C at charging and discharging, the battery will also have more power capacity to achieve lower thresholds relative to the same size peak. The West 90° array never achieves a lower total cost than the baseline South 20°. The combination South 20° / West 90° array does for all battery sizes below 400 kWh, with a maximum reduction of \$1120 (3.05%) relative to the South 20° at a very small battery size of 50 kWh. The largest percentage improvement of 3.54% (\$890) occurs for the 125 kWh battery. The absolute cost reduction is likely more important than the relative reduction since it would be treated directly as revenue in a cash flow analysis to determine the economic performance of a given battery.
 
-<img src="./images/bifacial_peak_shaving_paper.assets/total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" /><img src="./images/bifacial_peak_shaving_paper.assets/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" />
+<img src="./images/total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" /><img src="./images/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" />
 
 >  **Figure A: Total Retail Electric Cost and Percentage Reduction.** Left: The West 90° array does not reduce the total cost compared to the baseline South 20°array, but the combination South 20°/ West 90° array with 50 kWh battery does reduce the cost \$1120 (3.05%) over the 10 month data period. Right: The largest percentage decrease in total cost is 3.54% (\$890) for the 125 kWh battery.
 
-<img src="./images/bifacial_peak_shaving_paper.assets/single day of peak shaving 1.png" style="zoom: 50%;" /><img src="./images/bifacial_peak_shaving_paper.assets/single day of peak shaving 2.png" style="zoom: 50%;" />
+<img src="./images/single day of peak shaving 1.png" style="zoom: 50%;" /><img src="./images/single day of peak shaving 2.png" style="zoom: 50%;" />
 
 > **Figure F: Single Day of Peak Shaving.** Left: The South 20° solar array overproduces during the middle hours of the day but falls to 28 kW while the evening peak 
 
