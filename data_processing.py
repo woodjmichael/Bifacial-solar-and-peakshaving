@@ -971,7 +971,7 @@ def plot_weekly(ds,
 
 
 
-def plotly_stacked(_df:pd.DataFrame,
+def     plotly_stacked(_df:pd.DataFrame,
                    solar='solar',
                    solar_name='Solar',
                    load='load',
@@ -982,7 +982,7 @@ def plotly_stacked(_df:pd.DataFrame,
                    charge='charge',
                    load_charge_name='Load + Charge',
                    utility='utility',
-                   utility_name='Site Load',        
+                   utility_name='Import',        
                    soc='soc',
                    soc_name='SOC (right axis)',
                    soe='soe',
@@ -1000,8 +1000,13 @@ def plotly_stacked(_df:pd.DataFrame,
                    units_power='kW',
                    units_energy='kWh',
                    round_digits=1,
-                   upsample_min=None):
-    """ Make plotly graph with some data stacked in area-fill style
+                   upsample_min=None,
+                   template='plotly_white'):
+    """ Make plotly graph with some data stacked in area-fill style.
+    
+    Template options are :['ggplot2', 'seaborn', 'simple_white', 'plotly',
+         'plotly_white', 'plotly_dark', 'presentation', 'xgridoff',
+         'ygridoff', 'gridon', 'none']
     """
     
     df = _df.copy(deep=True) # we'll be modifying this
@@ -1159,17 +1164,17 @@ def plotly_stacked(_df:pd.DataFrame,
                       plot_bgcolor='rgba(0,0,0,0)',
                       legend=dict(orientation='h'),
                       legend_traceorder='reversed',
+                      template=template,
                       title=title,)
     if size is not None:
         fig.update_layout(width=size[0],height=size[1])
+
+        fig.update_yaxes(title_text=units_power, secondary_y=False)
     
     if soc in df.columns:
         fig.update_yaxes(title_text='%',range=(0, 100),secondary_y=True)
     elif soe in df.columns:
         fig.update_yaxes(title_text=units_energy,range=(0, df[soe].max()),secondary_y=True)
-
-    else:
-        fig.update_yaxes(title_text=units_power, secondary_y=False)
 
     if ylim is None:
         ymax = max(df[loadPlusCharge].max(),df[utility].max(),df[solar].max())

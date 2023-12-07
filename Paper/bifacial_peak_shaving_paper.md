@@ -43,7 +43,7 @@ $$
 
 Technical peak shaving refers to the case where a load must operate under a technical limitation such as a maximum power agreement or distribution transformer size. The load power must remain under the threshold at all times, otherwise there may be a technical failure such an activated overcurrent protection. Even if the load is technically able to rise above the threshold, doing so may violate a contract regarding maximum load power. The important consideration is that the economic cost of failure to hold the load under the threshold is prohibitively high. The time resolution of technical peak shaving control and modeling may need to be as low as seconds or milliseconds. Although this may be a challenging problem if the current limit is dynamically set or if a larger network is considered, from the perspective of dispatching the assets to shave the peak the problem is a relatively simple one: economic dispatch such that the the load current remains below the threshold current. Technical peak shaving might be performed on current or apparent power rather than active power.
 
-<img src="./bifacial_peak_shaving_paper.assets/tech_shaving.png"/>
+<img src="images/bifacial_peak_shaving_paper.assets/tech_shaving.png" style="zoom: 67%;" />
 
 > *Figure A: The threshold is 20 kW. The battery begins the day full at 100 kWh. By 8:00 the load has increased above the threshold to 25 kW, but solar has also increased to 9 kW, so the site load is still below the threshold. However at 9:00 the battery must discharge at 13 kW to reduce to site load to 20 kW. At 12:00 the battery can recharge somewhat due to an increase in solar and slight decrease in load. Then by 18:00 the load is less than the threshold and the battery can recharge, increasing the site load up to the threshold.*
 
@@ -55,7 +55,7 @@ Rather, economic peak shaving aims to reduce what a consumer pays for power and 
 
 Instead, the power cost (€$/kW \times P_{max}$ ) typically applies to the max power during the billing period, where the peak power is the maximum non-moving average in a given period (e.g. 12:00-18:00 on weekdays) calculated on a given interval (e.g. 60 minutes). Similar to the energy cost, there may be multiple time of use periods and associated prices, such as peak, mid-peak, and off-peak. And where the spread price is sufficiently high, the period peak can be reduced with load curtailment or rescheduling, distributed generation such as solar, or energy storage.     
 
-![technical peak shaving](./bifacial_peak_shaving_paper.assets/econ_shaving.png)
+<img src="images/bifacial_peak_shaving_paper.assets/econ_shaving.png" alt="technical peak shaving" style="zoom: 67%;" />
 
 > *Figure B: The threshold is comprised of two parts: Threshold0 at 20 kW from 12:00-18:00, and Threshold1 at 40 kW from 9:00-12:00 and 18:00-21:00. The battery begins the day full at 100 kWh. By 9:00 the load has increased above Threshold0, solar decreases this greatly, and the battery is discharged to further reduce the site load. However at 9:00 the battery must discharge at 13 kW to reduce to site load to 20 kW. At 11:00 and 12:00 the battery can recharge somewhat due to an increase in solar and slight decrease in load. Then by 18:00 the load is significantly less than the threshold and the battery can recharge, increasing the site load up to the threshold.*
 
@@ -93,13 +93,13 @@ The modelled PV production power begins life as GOES satellite solar irradiance 
 
 Three different solar array orientations are modelled and simulated in different case studies. Each orientation has the same number and type of modules: all modules facing South at 20° tilt, all modules facing West at 90° tilt, and half the modules facing South at 20° tilt and half the modules facing West at 90° tilt. Tilt is defined as 90° minus the altitude angle of the normal vector of the primary active face of the module. No shading is considered. Of the two sides of the bi-facial module, the primary active face is oriented West since afternoon load is generally subject to higher prices.
 
-| Timeseries Description             | Location                                | Type                                                         | Interval / Length                                 | Source            |
-| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------- | ----------------- |
-| EV charging power<br />($kW_{ac}$) | Jet Propulsion Lab, Pasadena CA, USA    | Measured and aggregated from multiple EV chargers at single site | 10 sec (average downsampled to 15 min) / 304 days | Caltech ACN       |
-| Solar irradiance <br />($W/m^2$)   | GPS: 34.2013, -118.1721 (2x2 km square) | GOES satellite irradiance                                    | 5 minute / 304 days                               | NSRDB PSMv3       |
-| PV array production  ($kW_{ac}$)   | GPS: 34.2013, -118.1721 (2x2 km square) | Modelled from satellite irradiance, 368 Prism Solar 350 W bifacial modules, 368 Enphase IQH 380 W microinverters | 15 minute / 304 days                              | SAM (Gilman 2015) |
+| Timeseries Description             | Location                                | Type                                                         | Interval / Length                                  | Source            |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- | ----------------- |
+| EV charging power<br />($kW_{ac}$) | Jet Propulsion Lab, Pasadena CA, USA    | Measured and aggregated from multiple EV chargers at single site | 10 sec (average downsampled to 15 min) / 10 months | Caltech ACN       |
+| Solar irradiance <br />($W/m^2$)   | GPS: 34.2013, -118.1721 (2x2 km square) | GOES satellite irradiance                                    | 5 minute / 10 months                               | NSRDB PSMv3       |
+| PV array production  ($kW_{ac}$)   | GPS: 34.2013, -118.1721 (2x2 km square) | Modelled from satellite irradiance, 368 Prism Solar 350 W bifacial modules, 368 Enphase IQH 380 W microinverters | 15 minute / 10 months                              | SAM (Gilman 2015) |
 
-> *Table C: Timeseries Data Summary. EV charging power is measured every 10 seconds for 304 days at the Jet Propulsion Laboratory, CA, USA. Solar irradiance from the GOES satellite is acquired for the same location. Solar PV array production is modelled from the satellite irradiance using a 6 parameter PV cell model and inverter efficiency lookup table.*
+> *Table C: Timeseries Data Summary. EV charging power is measured every 10 seconds for 10 months at the Jet Propulsion Laboratory, CA, USA. Solar irradiance from the GOES satellite is acquired for the same location. Solar PV array production is modelled from the satellite irradiance using a 6 parameter PV cell model and inverter efficiency lookup table.*
 
 ## Battery
 
@@ -249,19 +249,15 @@ The third case only orients half the modules West and 90°, which is a linear co
 
 # Results
 
-The peak shaving methodology produces an optimally low retail electric cost (demand) cost for each simulated month, and the monthly costs are summed up for a total power cost for the data available as in Figure A. First we notice that larger battery sizes (Figure A) and the larger solar plant size (Figure A vs Figure B) always reduces the power cost, as expected. 
+The peak shaving methodology produces an optimally low retail electric cost for each of the 10 months of data, which are summed up for total electric cost in Figure A versus the battery capacity sensitivity analysis. The costs monotonically decrease with battery capacity as expected because every marginal unit of added battery energy capacity allows the algorithm to hold a power threshold for longer, and  since each battery is rated for 1C at charging and discharging, the battery will also have more power capacity to achieve lower thresholds relative to the same size peak. The West 90° array never achieves a lower total cost than the baseline South 20°. The combination South 20° / West 90° array does for all battery sizes below 400 kWh, with a maximum reduction of \$1120 (3.05%) relative to the South 20° at a very small battery size of 50 kWh. The largest percentage improvement of 3.54% (\$890) occurs for the 125 kWh battery. The absolute cost reduction is likely more important than the relative reduction since it would be treated directly as revenue in a cash flow analysis to determine the economic performance of a given battery.
 
-The West 90 array achieves the lowest cost 
+<img src="./images/bifacial_peak_shaving_paper.assets/total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" /><img src="./images/bifacial_peak_shaving_paper.assets/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" />
 
-The West 90 and South 20 / West 90 cases always reduce the power cost relative to the baseline South 20 solar array, but the cost reduction decreases with larger battery sizes. And while the West 90 solar orientation always achieves lower cost than the hybrid South 20 / West 90 array, the difference is not substantial. The magnitude (USD) of cost reduction is the most important metric because it can be directly considered as revenue in a cashflow analysis to determine the economic performance of the combined solar and battery systems. 
+>  **Figure A: Total Retail Electric Cost and Percentage Reduction.** Left: The West 90° array does not reduce the total cost compared to the baseline South 20°array, but the combination South 20°/ West 90° array with 50 kWh battery does reduce the cost \$1120 (3.05%) over the 10 month data period. Right: The largest percentage decrease in total cost is 3.54% (\$890) for the 125 kWh battery.
 
-<img src="./.images/bifacial_peak_shaving_paper.assets/total retail.png" alt="image-20231206171536780" style="zoom: 67%;" /><img src="./.images/bifacial_peak_shaving_paper.assets/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 67%;" />
+<img src="./images/bifacial_peak_shaving_paper.assets/single day of peak shaving 1.png" style="zoom: 50%;" /><img src="./images/bifacial_peak_shaving_paper.assets/single day of peak shaving 2.png" style="zoom: 50%;" />
 
->  ***Figure A: Total power cost with peak shaving (net zero solar case).** The optimal peak shaving simulation finds a total cost for all data provided, which decreases with battery energy capacity. The West 90 and South 20 / West 90 cases always find a lower cost than the South 20 base case, although the reduction in cost decreases with larger battery size. The West 90 case always has a larger cost reduction than the South 20 / West 90, but the difference is not substantial and also decreases with larger battery size.* 
-
-![total cost](.images/bifacial_peak_shaving_paper.assets/total_cost_vs_batt_size-16984199146641.png)
-
->  **Figure B: Total power cost with peak shaving (2x solar case).** The optimal peak shaving simulation is also applied to a case study with a solar array which is double the capacity of the net zero one. The total cost values are somewhat lower than the net zero solar case, although the decrease is far from proportional. More interesting however is that the much larger solar capacity brings the three cases much closer together in their total costs, which is to say that the West 90 and South 20 / West 90 arrays cases are not benefitting as much from the late afternoon solar production due to the much larger quantity of midday solar production.
+> **Figure F: Single Day of Peak Shaving.** Left: The South 20° solar array overproduces during the middle hours of the day but falls to 28 kW while the evening peak 
 
 | Battery Capacity (kWh) | South 20° <br />(Baseline) | West 90° | 50% South 20°<br />50% West 90° | West 90°<br />Reduction | 50% South 20°<br />50% West 90° <br />Reduction | West 90°<br />Reduction<br />% | 50% South 20°<br />50% West 90° <br />Reduction % |
 | ---------------------: | -------------------------: | -------: | ------------------------------: | ----------------------: | ----------------------------------------------: | -----------------------------: | ------------------------------------------------: |
