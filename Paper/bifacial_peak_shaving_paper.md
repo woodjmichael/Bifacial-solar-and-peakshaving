@@ -71,7 +71,8 @@ Solar contributes significantly to the load, but once the peak period begins the
 # Methodology
 
 ```mermaid
-%%{init: {'flowchart' : {'curve' : 'stepBefore'}}}%%
+%%{init: {'flowchart' : {'curve' : 'basis'}}}%%
+%%{init: {"flowchart": {"defaultRenderer": "elk"}  } }%%
 graph LR
 g{Grid} --- m((Electric<br>Meter)) --- d(Distribution)
 d --- ev(EV<br>Chargers) & s(Solar<br>PV) & b(Battery)
@@ -161,7 +162,7 @@ $$
 An optimal peak shaving strategy is used to minimized the total retail electric cost to the EV charging station. The strategy is operational only, and assumes the solar production timeseries and battery capacity are fixed. The state variable controlled by the algorithm is battery charge or discharge power. However the algorithm reframes the problem as one of choosing a power threshold $T\ (kW)$ applied to the point of injection to the grid, the electric meter. The battery is then dispatched, within its technical limits, to hold the net load (natural load less solar production) below the threshold. When the algorithm is successful the different thresholds for each TOU period are met for an entire month. If the battery reaches a technical limit and net load exceeds a threshold, the simulation is not necessarily invalid but is not likely to minimize the retail electric cost to the site for that combination of solar and battery size. The peak shaving logic is described in Figure D. 
 
 ```mermaid
-%%{init: {'flowchart' : {'curve' : 'basis'}}}%%
+%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 graph LR
 NL("Net Load = Load - Solar <br> NL")
 NL --> D{"NL >T ?"}
@@ -205,7 +206,7 @@ Beginning from an initial guess the Newton-Raphson gradient descent optimizer ca
 Simulations are run one month at a time for a given solar array orientation and battery capacity, according to the flowchart in Figure C. The computational environment is Python 3.8 in Windows 10 64-bit, on an Intel i9 CPU with 64 GB of RAM.
 
 ```mermaid
-%%{init: {'flowchart' : {'curve' : 'basis'}}}%%
+%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 graph TD
 S(Choose Solar<br>Orientation)
 ST(Solar<br>Timeseries)
@@ -231,47 +232,57 @@ B ------> Sim
 
 # Case Studies
 
-Three case studies are evaluated, each relating to the orientation of the solar array but not changing the overall $kWp$ capacity. All case studies use the Prism 350 W bifacial solar PV modules and the Enphase IQH 380 W microinverters. 
+Five case studies are evaluated, each relating to the orientation of the solar array but not changing the overall $kWp$ capacity. All case studies use the Prism 350 W bifacial solar PV modules and the Enphase IQH 380 W microinverters. 
 
 The first and baseline case is a South-facing array of 368 modules, tilted at 20˚. This is intended to be a typical rooftop solar plant, especially in northern latitudes where lower sun angles and winter snow make the research question of vertical bifacial modules even more relevant. The daily clearsky solar power curve is the familiar rounded triangle centered at solar noon. The array is sized such that the total energy produced is equal to the total energy consumption of the EV charging station. This "net zero" sizing is not necessarily economically optimal, but rather it is a reasonable or typical size solar plant for the load. 
 
-The second case instead orients the active high-power face of the bifacial module West and tilts the module vertically at 90˚. This is an extreme case, especially at this large number of modules, but should be investigated since it represents the maximum amount that the daily clearsky power curve can be pushed toward the morning and evening from solar noon, making a two-peaked M-shape curve.
+The remaining case studies each consider a portion of the array to be instead rotated West and tilted 90°: 25%, 75%, and 100%. Especially the last case is relatively extreme from a design perspective, but should be investigated since it represents the maximum amount that the daily clearsky power curve can be pushed toward the morning and evening hours. This M-shaped power curve rather than the typical rounded-triangle power curve is the basis of any advantage vertical bifacial modules have regarding peak shaving. Microinverters are used in the design so that the cases with part of the array facing west can be thought of a linear combination of the M-shaped and rounded-triangle power curves.
 
-The third case only orients half the modules West and 90°, which is a linear combination of the first two cases and physically represents a more realistic physical design. The motivation for including this case in the investigation is that while the time of solar production is important for peak shaving, too much production in a small later afternoon window may not be well timed with the late afternoon peak and more energy overall would have been sufficient.
-
-| Case         | Orientation                                 | Tilt         | Total Energy <br />[$MWh$] | Solar Yield<br /> [$\frac{kWh}{kW_p}$] |
-| ------------ | ------------------------------------------- | ------------ | -------------------------- | -------------------------------------- |
-| 1 (baseline) | South (368 modules)                         | 20°          | 151.7                      | 1180.8                                 |
-| 2            | West (368 modules)                          | 90°          | 131.0                      | 1019.3                                 |
-| 3            | South (184 modules)<br />West (184 modules) | 20°<br />90° | 141.1                      | 1098.2                                 |
+| Case                         | No. Modules  | Orientation     | Tilt         | Total Energy <br />[$MWh$] | Solar Yield<br /> [$\frac{kWh}{kW_p}$] |
+| ---------------------------- | ------------ | --------------- | ------------ | -------------------------- | -------------------------------------- |
+| South 20°                    | 368          | South           | 20°          | 151.7                      | 1180.8                                 |
+| 75% South 20° / 25% West 90° | 276<br />92  | South<br />West | 20°<br />90° | 146.5                      | 1140.4                                 |
+| 50% South 20° / 50% West 90° | 184<br />184 | South<br />West | 20°<br />90° | 141.1                      | 1098.2                                 |
+| 25% South 20° / 75% West 90° | 92<br />276  | South<br />West | 20°<br />90° | 136.1                      | 1059.6                                 |
+| West 90°                     | 368          | West            | 90°          | 131.0                      | 1019.3                                 |
 
 > *Table D: Case Studies. All modules are the Prism 350 W bifacial. The baseline Case 1 is a South-facing array tilted to 20°. In Case 2 the primary high power surface faces West and the modules are tilted to 90°. In Case 3 half the array modules face West and are tilted at 90˚, and half the modules face South and are tilted at 20˚.*
 
 # Results
 
-The peak shaving methodology produces an optimally low retail electric cost for each of the 10 months of data, which are summed up for total electric cost in Figure A versus the battery capacity sensitivity analysis. The costs monotonically decrease with battery capacity as expected because every marginal unit of added battery energy capacity allows the algorithm to hold a power threshold for longer, and  since each battery is rated for 1C at charging and discharging, the battery will also have more power capacity to achieve lower thresholds relative to the same size peak. The West 90° array never achieves a lower total cost than the baseline South 20°. The combination South 20° / West 90° array does for all battery sizes below 400 kWh, with a maximum reduction of \$1120 (3.05%) relative to the South 20° at a very small battery size of 50 kWh. The largest percentage improvement of 3.54% (\$890) occurs for the 125 kWh battery. The absolute cost reduction is likely more important than the relative reduction since it would be treated directly as revenue in a cash flow analysis to determine the economic performance of a given battery.
+The peak shaving methodology produces an optimally low retail electric cost for each of the 10 months of data, which are summed up for total electric cost in Figure A versus the battery capacity sensitivity analysis. The costs monotonically decrease with battery capacity as expected because every marginal unit of added battery energy capacity allows the algorithm to hold a power threshold for longer, and  since each battery is rated for 1C at charging and discharging, the battery will also have more power capacity to achieve lower thresholds relative to the same size peak. The West 90° array never achieves a lower total cost than the baseline South 20°. Both the 25% South 20° / 75% West 90° and 50% South 20° / 50% West 90° arrays achieve a lower cost for all battery sizes below 400 kWh, with a maximum reduction of \$1175 (3.19%) relative to the South 20° at a very small battery size of 50 kWh. The largest percentage improvement of 3.60% (\$908) occurs for the 125 kWh battery. The absolute cost reduction is likely more important than the relative reduction since it would be treated directly as revenue in a cash flow analysis to determine the economic performance of a given battery.
 
 <img src="./images/total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" /><img src="./images/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" />
 
->  **Figure A: Total Retail Electric Cost and Percentage Reduction.** Left: The West 90° array does not reduce the total cost compared to the baseline South 20°array, but the combination South 20°/ West 90° array with 50 kWh battery does reduce the cost \$1120 (3.05%) over the 10 month data period. Right: The largest percentage decrease in total cost is 3.54% (\$890) for the 125 kWh battery.
+>  **Figure A: Total Retail Electric Cost and Percentage Reduction.** Left: The West 90° array does not reduce the total cost compared to the baseline South 20°array, but the 50% South 20°/ 50% West 90° array with 50 kWh battery does reduce the cost \$1175 (3.19%) over the 10 month data period. Right: The largest percentage decrease in total cost is 3.60% (\$908) for the 125 kWh battery in the same solar array case.
 
-<img src="./images/single day of peak shaving 1.png" style="zoom: 50%;" /><img src="./images/single day of peak shaving 2.png" style="zoom: 50%;" />
+The benefit of vertical bifacial modules can be seen when comparing the simulated battery charge and discharge timeseries data. Figure F shows the same day (June 6) for both the base Solar 20° case and the West 90° case, which is presented here as a better graphical example than the better performing 50% South 20° / 50% West 90° array. In the evening on June 6 there is a load peak from 17:30-22:00, with a maximum power of 56 kW and total energy of 104 kW. The battery capacity is 125 kWh nominal and 112.5 kWh after losses, and will charge and discharge at a maximum of 1C or 125 kW. Strictly speaking the battery could discharge completely and achieve a threshold of zero, but  
+
+In Figure F the base case of South 20° overproduces in the middle hours of the day and production is exported to the network starting around 12:00, but both batteries charge to 100% before the evening peak which begins at 17:30. The South 20° only produces 18.8 kWh after 17:30, whereas the West 90° array produces 104 kWh. 
+
+The total energy required by the load from 17:30 to 22:00 is 196 kWh. In the South 20° case the optimizer only has enough solar production to hold the total site load to a threshold of 15.2 kW (Peak period, 16:00-21:00) and 13.2 kW (Partial Peak period, 21:00-23:00). With more solar energy available the 
+
+
+
+  and the modest battery is only able to hold the the power threshold to 25.8 kW. 
+
+<img src="./images/single day of peak shaving south.png" style="zoom: 50%;" /><img src="./images/single day of peak shaving west.png" style="zoom: 50%;" />
 
 > **Figure F: Single Day of Peak Shaving.** Left: The South 20° solar array overproduces during the middle hours of the day but falls to 28 kW while the evening peak 
 
-| Battery Capacity (kWh) | South 20° <br />(Baseline) | West 90° | 50% South 20°<br />50% West 90° | West 90°<br />Reduction | 50% South 20°<br />50% West 90° <br />Reduction | West 90°<br />Reduction<br />% | 50% South 20°<br />50% West 90° <br />Reduction % |
-| ---------------------: | -------------------------: | -------: | ------------------------------: | ----------------------: | ----------------------------------------------: | -----------------------------: | ------------------------------------------------: |
-|                     25 |                    29588.0 |  29221.0 |                         29133.0 |                   367.0 |                                           455.0 |                           1.24 |                                              1.53 |
-|                     50 |                    23747.0 |  22972.0 |                         22876.0 |                   775.0 |                                           871.0 |                           3.26 |                                              3.66 |
-|                     75 |                    19797.0 |  18721.0 |                         19058.0 |                  1076.0 |                                           739.0 |                           5.43 |                                              3.73 |
-|                    100 |                    16230.0 |  15495.0 |                         15279.0 |                   735.0 |                                           951.0 |                           4.52 |                                              5.85 |
-|                    125 |                    13388.0 |  12682.0 |                         12454.0 |                   706.0 |                                           934.0 |                           5.27 |                                              6.97 |
-|                    150 |                    11155.0 |  11112.0 |                         10519.0 |                    43.0 |                                           636.0 |                           0.38 |                                              5.70 |
-|                    200 |                     8445.0 |   8715.0 |                          8017.0 |                  -270.0 |                                           428.0 |                          -3.19 |                                              5.06 |
-|                    400 |                     4850.0 |   5372.0 |                          5024.0 |                  -522.0 |                                          -174.0 |                         -10.76 |                                             -3.58 |
-|                    600 |                     3694.0 |   4180.0 |                          3807.0 |                  -486.0 |                                          -113.0 |                         -13.15 |                                             -3.05 |
+| Battery Capacity (kWh) | Cost South 20° <br />(Baseline) [$] | Cost 50% South 20°<br />50% West 90° [$] | Cost West 90° [$] | Cost Reduction West 90° [$] | Cost Reduction West 90° <br />Reduction [$] | Cost Reduction 50% South 20°<br />50% West 90° <br />Reduction [%] | Cost Reduction West 90° <br />Reduction [%] |
+| ---------------------- | ----------------------------------- | ---------------------------------------- | ----------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------- |
+| 25                     | 41616                               | 40647                                    | 42050             | 969                         | -434                                        | 2.33                                                         | -1.04                                       |
+| 50                     | 36749                               | 35574                                    | 36860             | 1175                        | -111                                        | 3.19                                                         | -0.30                                       |
+| 75                     | 32634                               | 31490                                    | 33145             | 1144                        | -511                                        | 3.50                                                         | -1.56                                       |
+| 100                    | 28548                               | 27554                                    | 29121             | 994                         | -573                                        | 3.48                                                         | -2.00                                       |
+| 125                    | 25169                               | 24261                                    | 26403             | 908                         | -1234                                       | 3.60                                                         | -4.90                                       |
+| 150                    | 22705                               | 22105                                    | 24495             | 600                         | -1790                                       | 2.64                                                         | -7.88                                       |
+| 200                    | 19967                               | 19525                                    | 21955             | 442                         | -1988                                       | 2.21                                                         | -9.95                                       |
+| 400                    | 15360                               | 15794                                    | 17524             | -434                        | -2164                                       | -2.82                                                        | -14.08                                      |
+| 600                    | 12519                               | 12975                                    | 14964             | -456                        | -2445                                       | -3.64                                                        | -19.53                                      |
 
-Table C: Battery size sensitivity analysis for each of the two solar configuration cases, standard rate tariff
+>  Table C: Battery size sensitivity analysis for each of the two solar configuration cases, standard rate tariff. For conciseness only three of the case studies are shown.
 
 | Solar Capacity (% of net zero) | Best s20->w90 Reduction [\$,%] (Batt [kWh]) | Best s20->s20w90 Reudction [\$,%] (Batt [kWh]) |
 | ------------------------------ | ------------------------------------------ | --------------------------------------------- |
