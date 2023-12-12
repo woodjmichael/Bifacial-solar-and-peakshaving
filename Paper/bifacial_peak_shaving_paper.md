@@ -71,8 +71,8 @@ Solar contributes significantly to the load, but once the peak period begins the
 # Methodology
 
 ```mermaid
-%%{init: {'flowchart' : {'curve' : 'basis'}}}%%
 %%{init: {"flowchart": {"defaultRenderer": "elk"}  } }%%
+
 graph LR
 g{Grid} --- m((Electric<br>Meter)) --- d(Distribution)
 d --- ev(EV<br>Chargers) & s(Solar<br>PV) & b(Battery)
@@ -132,25 +132,27 @@ A typical California electric tariff is applied at the point of the retail elect
 
 > *Table B: Retail Electric Tariff. An applicable electric tariff schedule with seven different TOU periods for energy and power prices, varying by hours of the day and season of the year. From California PG&E.*
 
-The total retail electric cost $C$ for each month is then the sum of the energy cost and power cost for the month, where the energy and power costs are calculated separately for each TOU period. The energy cost is the energy delivered to the site multiplied by the energy price for that TOU period. The power cost is the maximum 15-minute average power for the month multiplied by the power price for that TOU period.
+The total retail electric cost $C$ for each month is then the sum of the energy cost and power cost for the month, where the energy and power costs are calculated separately for each TOU period. The energy cost is the energy delivered to the site multiplied by the energy price for that TOU period. The power cost is the maximum 15-minute average power for the month multiplied by the power price for that TOU period. Only positive values of site load $SL$ are used in the cost calculation since the monthly peak power for each TOU period must always be positive and necessarily cannot benefit from net metering (export to the grid).
 
 $$
 \begin{equation}
 \begin{split}
-NL(t) &= L(t) - S(t) \\
-NL_{p}(t) &= NL(t),\ \forall \ NL(t)>0 \\
 B(t) &= B_d(t) - B_c(t) \\
-C_m &= \Sigma_k^K [ p_{p,k,m} max(NL_{p,k,m}-B) + p_{e,k,m} \Sigma (NL_{p,k,m}-B) ] \\
+NL(t) &= L(t) - S(t) \\
+SL(t) &= L(t) - S(t) - B(t) = NL(t) - B(t)\\
+SL^+(t) &= SL(t),\ \forall\ SL(t)>0\\
+C_m &= \Sigma_k^K [ p_{p,k,m} max(SL^+_{k,m}) + p_{e,k,m} \Sigma (SL^+_{k,m}) ] \\
 \\
 & \text{where:} \\
-&L \text{ is EV charging load}\ (kW) \\
-&S \text{ is solar production}\ (kW)\\
-&NL \text{ is net load}\ (kW) \\
-&B_c \text{ is battery charging power (non-negative)}\ (kW) \\
-&B_d \text{ is battery discharging power (non-negative)}\ (kW) \\
-&C_m \text{ is total retail electric cost for month}\ m\ (\$) \\
-&p_{p,k,m} \text{ is power price for TOU period}\ k\ \text{and month}\ m\  (\$/kW) \\
-&p_{e,k,m} \text{ is energy price for TOU period}\ k\ \text{and month}\ m\ (\$/kWh) \\
+&L \text{ is EV charging load}\ [kW] \\
+&S \text{ is solar production}\ [kW]\\
+&NL \text{ is net load}\ [kW] \\
+&SL \text{ is site load, measured at the retail electric meter}\ [kW] \\
+&B_c \text{ is battery charging power (non-negative)}\ [kW] \\
+&B_d \text{ is battery discharging power (non-negative)}\ [kW] \\
+&C_m \text{ is total retail electric cost for month}\ m\ [\$] \\
+&p_{p,k,m} \text{ is power price for TOU period}\ k\ \text{and month}\ m\  [\$/kW] \\
+&p_{e,k,m} \text{ is energy price for TOU period}\ k\ \text{and month}\ m\ [\$/kWh] \\
 &K \text{ is number of TOU periods}
 \end{split}
 \end{equation}
@@ -163,6 +165,7 @@ An optimal peak shaving strategy is used to minimized the total retail electric 
 
 ```mermaid
 %%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
+
 graph LR
 NL("Net Load = Load - Solar <br> NL")
 NL --> D{"NL >T ?"}
@@ -190,10 +193,10 @@ B_d(t) & \le B_{d,max} \\
 SOC_{min} & \le SOC(t) \le SOC_{max} \\
 \\
 & \text{where:} \\
-B_c & \text{ is battery charge power timeseries}\ (kW) \\
-B_d & \text{ is battery discharge power timeseries}\ (kW) \\
+B_c & \text{ is battery charge power timeseries}\ [kW] \\
+B_d & \text{ is battery discharge power timeseries}\ [kW] \\
 T_k & \text{ is threshold for}\ k\text{-th TOU period of}\ K\ \text{total periods} \\
-SOC & \text{ is battery state of charge timeseries}\ (\frac{kWh}{kWh}) \\
+SOC & \text{ is battery state of charge timeseries}\ [\frac{kWh}{kWh}] \\
 \end{split}
 \end{equation}
 $$
@@ -252,37 +255,37 @@ The remaining case studies each consider a portion of the array to be instead ro
 
 The peak shaving methodology produces an optimally low retail electric cost for each of the 10 months of data, which are summed up for total electric cost in Figure A versus the battery capacity sensitivity analysis. The costs monotonically decrease with battery capacity as expected because every marginal unit of added battery energy capacity allows the algorithm to hold a power threshold for longer, and  since each battery is rated for 1C at charging and discharging, the battery will also have more power capacity to achieve lower thresholds relative to the same size peak. The West 90° array never achieves a lower total cost than the baseline South 20°. Both the 25% South 20° / 75% West 90° and 50% South 20° / 50% West 90° arrays achieve a lower cost for all battery sizes below 400 kWh, with a maximum reduction of \$1175 (3.19%) relative to the South 20° at a very small battery size of 50 kWh. The largest percentage improvement of 3.60% (\$908) occurs for the 125 kWh battery. The absolute cost reduction is likely more important than the relative reduction since it would be treated directly as revenue in a cash flow analysis to determine the economic performance of a given battery.
 
-<img src="./images/total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" /><img src="./images/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 50%;" />
+<img src="./images/total retail electric cost.png" alt="image-20231206171536780" style="zoom: 67%;" /><img src="./images/reduction in total retail electric cost.png" alt="image-20231206171536780" style="zoom: 67%;" />
 
->  **Figure A: Total Retail Electric Cost and Percentage Reduction.** Left: The West 90° array does not reduce the total cost compared to the baseline South 20°array, but the 50% South 20°/ 50% West 90° array with 50 kWh battery does reduce the cost \$1175 (3.19%) over the 10 month data period. Right: The largest percentage decrease in total cost is 3.60% (\$908) for the 125 kWh battery in the same solar array case.
+>  **Figure A: Total Retail Electric Cost and Percentage Reduction.** Left: The West 90° array does not reduce the total cost compared to the baseline South 20°array, but the 50% South 20°/ 50% West 90° array with 50 kWh battery does reduce the cost \$1175 (3.19%) over the 10 month data period. Right: The largest percentage decrease in total cost is 3.60% (\$908) for the 125 kWh battery in the same solar array case. A selection of the data for these graphs is shown in Table C. 
 
-The benefit of vertical bifacial modules can be seen when comparing the simulated battery charge and discharge timeseries data. Figure F shows the same day (June 6) for both the base Solar 20° case and the West 90° case, which is presented here as a better graphical example than the better performing 50% South 20° / 50% West 90° array. In the evening on June 6 there is a load peak from 17:30-22:00, with a maximum power of 56 kW and total energy of 104 kW. The battery capacity is 125 kWh nominal and 112.5 kWh after losses, and will charge and discharge at a maximum of 1C or 125 kW. Strictly speaking the battery could discharge completely and achieve a threshold of zero, but  
+The benefit of vertical bifacial modules can be seen when comparing the simulated battery charge and discharge timeseries data. Figure F shows the same day (June 6) for both the base Solar 20° case and the West 90° case, which is presented here as a clearer graphical example than the better performing 50% South 20° / 50% West 90° array. In the evening on June 6 there is a load peak at approximately 17:30-21:30, with a maximum power of 56 kW and total energy of 201 kW. June 6 is also the limiting day for the base South 20° case, where the battery reaches a technical limit (zero SOC). The battery capacity is 125 kWh nominal and 112.5 kWh after losses, and will charge and discharge at a maximum of 1C or 125 kW. 
 
-In Figure F the base case of South 20° overproduces in the middle hours of the day and production is exported to the network starting around 12:00, but both batteries charge to 100% before the evening peak which begins at 17:30. The South 20° only produces 18.8 kWh after 17:30, whereas the West 90° array produces 104 kWh. 
+In Figure F the base case of South 20° overproduces in the middle hours of the day and solar is exported to the network starting around 12:00. During the peak load event the South 20° only produces 18.8 kWh whereas the West 90° array produces 104 kWh. In each case the battery charges to 100% before the evening peak load event. The result is that the evening net load peak in the West 90° case starts later and contains less energy, though it reaches the same maximum power. 
 
-The total energy required by the load from 17:30 to 22:00 is 196 kWh. In the South 20° case the optimizer only has enough solar production to hold the total site load to a threshold of 15.2 kW (Peak period, 16:00-21:00) and 13.2 kW (Partial Peak period, 21:00-23:00). With more solar energy available the 
+Therefore the battery in the West 90° case can hold the site load (power seen at the electric meter) to a lower threshold, which is directly related to minimizing the retail electric cost. In fact the base South 20° case only achieves a threshold of 13.2 kW (Peak period, 16:00-21:00), whereas the West 90° case holds a threshold of 7.7 kW in the same period, a 42% improvement. 
 
+<img src="./images/single day of peak shaving south.png" style="zoom: 67%;" /><img src="./images/single day of peak shaving west.png" style="zoom: 67%;" />
 
+> **Figure F: Single Day of Peak Shaving.** The stacked dispatch plots use a convention where EV charging load (magenta) and stationary battery charging additional load (blue) are the solid lines, whereas any source of energy including the discharging battery are solid areas. Since load must always be equal to the sum of supplied energy, the areas always stack up to meet the load lines. The only exception is when energy is exported back to the network, as is the case with afternoon solar production here. The TOU power thresholds are represented by the four dashed line segments, which begin and end based on the begin and end of the TOU period, and overlap in time where the TOU periods overlap. SOE is the dash-dot line referenced to the right vertical axis. Left: The base South 20° solar array overproduces midday and exports energy to the grid, leaving more energy in the evening peak that the stationary battery needs to serve. Right: The West 90° case exports less solar to the grid, and has more late afternoon production aligned with the evening load peak, allowing the peak shaving algorithm to achieve a 42% lower Peak period threshold of 7.7 kW than the South 20° array. 
 
-  and the modest battery is only able to hold the the power threshold to 25.8 kW. 
+In Table C are some of the data from Figure A, where the best reduction in total retail electric cost relative to the base case is $1175 for the 50% South 20° / 50° West 90° case. Not shown, for conciseness, are the 25% South 20° / 75% West 90° and the 75% South 20° / 25% West 90° cases. Note that the largest reduction in retail cost may not be the best solution economically, since the 25 kWh battery achieves 83% of the cost reduction at half the battery energy capacity.  A simple payback period can be calculated from the Table C data if we assume 1000 \$/kWh as an installed cost of the stationary battery system. The  50% South 20° / 50° West 90° case 25 kWh battery pays back in approximately 2.1 years, whereas the 50 kWh battery pays back in 3.5 years. For each larger battery size the capital expenditure increases and cost reduction decreases, meaning the payback period will only increase. However these figures are very approximate since there are only 10 months of data and in a real system other revenue sources for the battery system would be considered.
 
-<img src="./images/single day of peak shaving south.png" style="zoom: 50%;" /><img src="./images/single day of peak shaving west.png" style="zoom: 50%;" />
-
-> **Figure F: Single Day of Peak Shaving.** Left: The South 20° solar array overproduces during the middle hours of the day but falls to 28 kW while the evening peak 
-
-| Battery Capacity (kWh) | Cost South 20° <br />(Baseline) [$] | Cost 50% South 20°<br />50% West 90° [$] | Cost West 90° [$] | Cost Reduction West 90° [$] | Cost Reduction West 90° <br />Reduction [$] | Cost Reduction 50% South 20°<br />50% West 90° <br />Reduction [%] | Cost Reduction West 90° <br />Reduction [%] |
+| Battery Capacity (kWh) | Cost<br />South 20 (Base case) [\$] | Cost<br />50% South 20° / 50% West 90° [\$] | Cost West 90° [\$] | Cost Reduction<br />50% South 20° / 50% West 90° [\$] | Cost Reduction<br />West 90° [\$] | Cost Reduction<br />50% South 20° / 50% West 90° [%] | Cost Reduction<br /> West 90° [%] |
 | ---------------------- | ----------------------------------- | ---------------------------------------- | ----------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------- |
 | 25                     | 41616                               | 40647                                    | 42050             | 969                         | -434                                        | 2.33                                                         | -1.04                                       |
-| 50                     | 36749                               | 35574                                    | 36860             | 1175                        | -111                                        | 3.19                                                         | -0.30                                       |
+| 50                     | 36749                               | 35574                                    | 36860             | **1175**                    | -111                                        | 3.19                                                         | -0.30                                       |
 | 75                     | 32634                               | 31490                                    | 33145             | 1144                        | -511                                        | 3.50                                                         | -1.56                                       |
 | 100                    | 28548                               | 27554                                    | 29121             | 994                         | -573                                        | 3.48                                                         | -2.00                                       |
-| 125                    | 25169                               | 24261                                    | 26403             | 908                         | -1234                                       | 3.60                                                         | -4.90                                       |
+| 125                    | 25169                               | 24261                                    | 26403             | 908                         | -1234                                       | **3.60**                                                     | -4.90                                       |
 | 150                    | 22705                               | 22105                                    | 24495             | 600                         | -1790                                       | 2.64                                                         | -7.88                                       |
 | 200                    | 19967                               | 19525                                    | 21955             | 442                         | -1988                                       | 2.21                                                         | -9.95                                       |
 | 400                    | 15360                               | 15794                                    | 17524             | -434                        | -2164                                       | -2.82                                                        | -14.08                                      |
 | 600                    | 12519                               | 12975                                    | 14964             | -456                        | -2445                                       | -3.64                                                        | -19.53                                      |
 
->  Table C: Battery size sensitivity analysis for each of the two solar configuration cases, standard rate tariff. For conciseness only three of the case studies are shown.
+>  Table C: Battery size sensitivity analysis for each of the two solar configuration cases, standard rate tariff. The best reduction in total retail cost is \$1175  for the 50% South 20° / 50° West 90° case. For conciseness only three of the case studies are shown. 
+
+In Table D a sensitivity analysis on the size of the solar plant is performed. 
 
 | Solar Capacity (% of net zero) | Best s20->w90 Reduction [\$,%] (Batt [kWh]) | Best s20->s20w90 Reudction [\$,%] (Batt [kWh]) |
 | ------------------------------ | ------------------------------------------ | --------------------------------------------- |
@@ -296,5 +299,7 @@ The total energy required by the load from 17:30 to 22:00 is 196 kWh. In the Sou
 Table D: Solar capacity sensitivity analysis fo
 
 # Conclusion
+
+The presence of this limiting day in the month simulation of Figure F does not guarantee a global minimum cost, but the lack of a limiting day would suggest the global minimum was not found. Intuitively the limiting day can be thought of as the most difficult day for the battery to achieve the given thresholds, and if the day was somehow easier for the battery (less and more uniform net load) the thresholds could be lowered and therefore a lower retail electric cost achieved.
 
 # Bibliography
