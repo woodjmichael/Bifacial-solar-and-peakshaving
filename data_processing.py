@@ -971,7 +971,7 @@ def plot_weekly(ds,
 
 
 
-def     plotly_stacked(_df:pd.DataFrame,
+def plotly_stacked(_df:pd.DataFrame,
                    solar='solar',
                    solar_name='Solar',
                    load='load',
@@ -980,7 +980,7 @@ def     plotly_stacked(_df:pd.DataFrame,
                    discharge='discharge',
                    discharge_name='Battery Discharge',
                    charge='charge',
-                   load_charge_name='Load + Charge',
+                   load_charge_name='Load + Battery Charge',
                    utility='utility',
                    utility_name='Import',        
                    soc='soc',
@@ -989,10 +989,13 @@ def     plotly_stacked(_df:pd.DataFrame,
                    soe_name='SOE (right axis)',
                    threshold0=None,
                    threshold0_h=None,
+                   threshold0_name = 'Threshold 0',
                    threshold1=None,
                    threshold1_h=None,
+                   threshold1_name = 'Threshold 1',
                    threshold2=None,
                    threshold2_h=None,
+                   threshold2_name = 'Threshold 2',
                    ylim=None,
                    size=None,
                    title=None,
@@ -1086,7 +1089,11 @@ def     plotly_stacked(_df:pd.DataFrame,
             x=df.index, y=df[loadPlusCharge].round(round_digits),
             mode='lines',
             #stackgroup='one',
-            line=dict(width=1.5, dash='dash', color='dodgerblue'),
+            line=dict(width=1.5,
+                      #dash='dash',
+                      color='dodgerblue',
+                      #color='mediumvioletred',
+                      ),
         ),
         secondary_y=False,
     )
@@ -1096,7 +1103,9 @@ def     plotly_stacked(_df:pd.DataFrame,
             x=df.index, y=df[load].round(round_digits),
             mode='lines',
             #stackgroup='one',
-            line=dict(width=1.5, color='indigo'),
+            line=dict(width=1.5,
+                      #color='indigo'),
+                      color='mediumvioletred',)
         ),
         secondary_y=False,
     )
@@ -1104,36 +1113,48 @@ def     plotly_stacked(_df:pd.DataFrame,
         if threshold1 is None:
             name = 'Threshold'
         else:
-            name = 'Threshold 0'
+            name = threshold0_name
         fig.add_trace(
             go.Scatter(
                 name=name,
                 x=df.index, y=df['threshold0'],
                 mode='lines',
                 #stackgroup='one',
-                line=dict(width=1.5, color='palevioletred'),
+                line=dict(width=3,
+                          #color='palevioletred',
+                          color='gray',
+                          dash='longdash', # ['solid', 'dot', 'dash', 'longdash', 'dashdot', 'longdashdot']
+                          ),
             ),
             secondary_y=False,
         )
     if threshold1 is not None:
         fig.add_trace(
             go.Scatter(
-                name='Threshold 1',
+                name=threshold1_name,
                 x=df.index, y=df['threshold1'],
                 mode='lines',
                 #stackgroup='one',
-                line=dict(width=1.5, color='mediumvioletred'),
+                line=dict(width=3,
+                          #color='mediumvioletred'),
+                          color='black',
+                          dash='dash',
+                          ),
             ),
             secondary_y=False,
         )
     if threshold2 is not None:
         fig.add_trace(
             go.Scatter(
-                name='Threshold 2',
+                name=threshold2_name,
                 x=df.index, y=df['threshold2'],
                 mode='lines',
                 #stackgroup='one',
-                line=dict(width=1.5, color='crimson'),
+                line=dict(width=3,
+                          #color='crimson'),
+                          color='black',
+                          dash='dot',
+                          ),
             ),
             secondary_y=False,
         )        
@@ -1143,7 +1164,7 @@ def     plotly_stacked(_df:pd.DataFrame,
                 name=soc_name,
                 x=df.index, y=(df[soc]*100).round(round_digits),
                 mode='lines',
-                line=dict(width=1, dash='dot',color='coral'),
+                line=dict(width=1, dash='dashdot',color='coral'),
             ),
             secondary_y=True,
         ) 
@@ -1153,7 +1174,261 @@ def     plotly_stacked(_df:pd.DataFrame,
                 name=soe_name,
                 x=df.index, y=df[soe].round(round_digits),
                 mode='lines',
-                line=dict(width=1, dash='dot',color='coral'),
+                line=dict(width=1, dash='dashdot',color='coral'),
+            ),
+            secondary_y=True,
+        )
+           
+    fig.update_traces(hovertemplate=None)#, xhoverformat='%{4}f')
+    fig.update_layout(hovermode='x',
+                      paper_bgcolor='rgba(0,0,0,0)',
+                      plot_bgcolor='rgba(0,0,0,0)',
+                      legend=dict(orientation='h'),
+                      legend_traceorder='reversed',
+                      template=template,
+                      title=title,)
+    if size is not None:
+        fig.update_layout(width=size[0],height=size[1])
+
+        fig.update_yaxes(title_text=units_power, secondary_y=False)
+    
+    if soc in df.columns:
+        fig.update_yaxes(title_text='%',range=(0, 100),secondary_y=True)
+    elif soe in df.columns:
+        fig.update_yaxes(title_text=units_energy,range=(0, df[soe].max()),secondary_y=True)
+
+    if ylim is None:
+        ymax = max(df[loadPlusCharge].max(),df[utility].max(),df[solar].max())
+        fig.update_yaxes(range=(-.025*ymax, 1.1*ymax),secondary_y=False)
+    else:
+        fig.update_yaxes(range=(ylim[0], ylim[1]),secondary_y=False)
+        
+    fig.show()
+    
+def plotly_stacked_4tou(_df:pd.DataFrame,
+                   solar='solar',
+                   solar_name='Solar',
+                   load='load',
+                   load_name='Load',
+                   batt='batt',
+                   discharge='discharge',
+                   discharge_name='Battery Discharge',
+                   charge='charge',
+                   load_charge_name='Load + Battery Charge',
+                   utility='utility',
+                   utility_name='Import',        
+                   soc='soc',
+                   soc_name='SOC (right axis)',
+                   soe='soe',
+                   soe_name='SOE (right axis)',
+                   threshold0=None,
+                   threshold0_h=None,
+                   threshold0_name = 'Threshold 0',
+                   threshold1=None,
+                   threshold1_h=None,
+                   threshold1_name = 'Threshold 1',
+                   threshold2=None,
+                   threshold2_h=None,
+                   threshold2_name = 'Threshold 2',
+                   threshold3=None,
+                   threshold3_h=None,
+                   threshold3_name = 'Threshold 3',
+                   ylim=None,
+                   size=None,
+                   title=None,
+                   fig=None,
+                   units_power='kW',
+                   units_energy='kWh',
+                   round_digits=1,
+                   upsample_min=None,
+                   template='plotly_white'):
+    """ Make plotly graph with some data stacked in area-fill style.
+    
+    Template options are :['ggplot2', 'seaborn', 'simple_white', 'plotly',
+         'plotly_white', 'plotly_dark', 'presentation', 'xgridoff',
+         'ygridoff', 'gridon', 'none']
+    """
+    
+    df = _df.copy(deep=True) # we'll be modifying this
+    
+    # upsample for more accurate viewing
+    if upsample_min is not None:
+        freq_min = int(df.index.to_series().diff().dropna().mean().seconds/60)
+        new_length = len(df) * (freq_min / upsample_min)
+        df = upsample_ffill(df,freq=f'{upsample_min}min',periods=new_length)
+        
+    # threshold vectors
+    if threshold0 is not None:
+        df['threshold0'] = [threshold0 if x in threshold0_h else pd.NA for x in df.index.hour]
+    if threshold1 is not None:
+        df['threshold1'] = [threshold1 if x in threshold1_h else pd.NA for x in df.index.hour]
+    if threshold2 is not None:
+        df['threshold2'] = [threshold2 if x in threshold2_h else pd.NA for x in df.index.hour]
+    if threshold3 is not None:
+        df['threshold3'] = [threshold3 if x in threshold3_h else pd.NA for x in df.index.hour]
+    
+    #export='export'
+    loadPlusCharge = 'loadPlusCharge'
+
+    if charge not in df.columns:
+        df[charge] =    [max(0,-1*x) for x in df[batt]]
+        df[discharge] =    [max(0,x) for x in df[batt]]    
+    df[loadPlusCharge] = df[load]+df[charge]
+    #df[export] = df[solar] - df[loadPlusCharge] #[-1*min(0,x) for x in df[utility]]
+    df[utility] = [max(0,x) for x in df[utility]]
+    df[solar] = df[solar]#df[load] - df[utility]
+    
+    # plot
+    
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    
+    fig.add_trace(
+        go.Scatter(
+            name=utility_name,
+            x=df.index, y=df[utility].round(round_digits),
+            mode='lines',
+            stackgroup='one',
+            line=dict(width=0, color='darkseagreen'),
+        ),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            name=solar_name,
+            x=df.index, y=df[solar].round(round_digits),
+            mode='lines',
+            stackgroup='one',
+            line=dict(width=0,color='gold'),
+        ),
+        secondary_y=False,
+    )
+    # fig.add_trace(
+    #     go.Scatter(
+    #         name='Export',
+    #         x=df.index, y=df[export],
+    #         mode='lines',
+    #         stackgroup='one',
+    #         line=dict(width=0,color='khaki'),
+    #     ),
+    #     secondary_y=False,
+    # )
+    fig.add_trace(
+        go.Scatter(
+            name=discharge_name,
+            x=df.index, y=df[discharge].round(round_digits),
+            mode='lines',
+            stackgroup='one',
+            line=dict(width=0, color='dodgerblue'),
+        ),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            name=load_charge_name,
+            x=df.index, y=df[loadPlusCharge].round(round_digits),
+            mode='lines',
+            #stackgroup='one',
+            line=dict(width=1.5,
+                      #dash='dash',
+                      color='dodgerblue',
+                      #color='mediumvioletred',
+                      ),
+        ),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            name=load_name,
+            x=df.index, y=df[load].round(round_digits),
+            mode='lines',
+            #stackgroup='one',
+            line=dict(width=1.5,
+                      #color='indigo'),
+                      color='mediumvioletred',)
+        ),
+        secondary_y=False,
+    )
+    if threshold0 is not None:
+        if threshold1 is None:
+            name = 'Threshold'
+        else:
+            name = threshold0_name
+        fig.add_trace(
+            go.Scatter(
+                name=name,
+                x=df.index, y=df['threshold0'],
+                mode='lines',
+                #stackgroup='one',
+                line=dict(width=3,
+                          #color='palevioletred',
+                          color='gray',
+                          dash='longdash', # ['solid', 'dot', 'dash', 'longdash', 'dashdot', 'longdashdot']
+                          ),
+            ),
+            secondary_y=False,
+        )
+    if threshold1 is not None:
+        fig.add_trace(
+            go.Scatter(
+                name=threshold1_name,
+                x=df.index, y=df['threshold1'],
+                mode='lines',
+                #stackgroup='one',
+                line=dict(width=3,
+                          #color='mediumvioletred'),
+                          color='black',
+                          dash='dash',
+                          ),
+            ),
+            secondary_y=False,
+        )
+    if threshold2 is not None:
+        fig.add_trace(
+            go.Scatter(
+                name=threshold2_name,
+                x=df.index, y=df['threshold2'],
+                mode='lines',
+                #stackgroup='one',
+                line=dict(width=3,
+                          #color='crimson'),
+                          color='black',
+                          dash='dot',
+                          ),
+            ),
+            secondary_y=False,
+        )
+    if threshold3 is not None:
+        fig.add_trace(
+            go.Scatter(
+                name=threshold3_name,
+                x=df.index, y=df['threshold3'],
+                mode='lines',
+                #stackgroup='one',
+                line=dict(width=3,
+                          #color='crimson'),
+                          color='black',
+                          dash='dot',
+                          ),
+            ),
+            secondary_y=False,
+        )        
+    if soc in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                name=soc_name,
+                x=df.index, y=(df[soc]*100).round(round_digits),
+                mode='lines',
+                line=dict(width=1, dash='dashdot',color='coral'),
+            ),
+            secondary_y=True,
+        ) 
+    elif soe in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                name=soe_name,
+                x=df.index, y=df[soe].round(round_digits),
+                mode='lines',
+                line=dict(width=1, dash='dashdot',color='coral'),
             ),
             secondary_y=True,
         )
