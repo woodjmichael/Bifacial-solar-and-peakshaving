@@ -1,7 +1,7 @@
 # %%
 """ Bifacial Peak Shaving
 """
-__version__ = '14'
+__version__ = '15'
 import sys
 import json
 import math
@@ -863,4 +863,4 @@ if __name__ == '__main__':
     solar = read_and_scale_solar(cfg,load.index)
     net_load = calculate_net_load(load,solar)        
     tou = TimeOfUseTariff(cfg.tou)
-    optimize_thresholds(cfg,net_load,tou,test=True)
+    optimize_thresholds(cfg,net_load,tou)

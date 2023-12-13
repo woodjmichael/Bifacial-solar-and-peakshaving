@@ -1,17 +1,18 @@
 {
     "gpu": true,
+    "load_file": "/Load/Vehicle/ACN/old/acn_caltech.csv",
+    "solar_files": "/Solar/Modelled/",
     "solar_scaler": 1.0,
     "solar_angles": ["s20", "s20w90_25_75", "s20w90_50_50", "s20w90_75_25", "w90"],
     "batt_kwhs": [25, 50, 75, 100, 125, 150, 200, 400, 600],
-    "load_file": "/Load/Vehicle/ACN/old/acn_caltech.csv",
-    "solar_files": "/Solar/Modelled/",
     "tou": 
     {
         "All Hours sum": {
             "months": [6, 7, 8, 9],
             "power_price": 26.07,
             "energy_price": 0,
-            "from_to_h": [[0, 24], [0, 0], [0, 0]] 
+            "from_to_h": [[0, 24], [0, 0], [0, 0]],
+            "comment": "from_to_h pairs are such that the first value is inclusive and the second value is exclusive (e.g. [14,16] means 14:00 to 15:59)"
         },
         "Off Peak sum": {
             "months": [6, 7, 8, 9],
