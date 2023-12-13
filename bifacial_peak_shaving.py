@@ -1,6 +1,9 @@
+# %%
 """ Bifacial Peak Shaving
 """
+__version__ = '14'
 import sys
+import json
 import math
 import pandas as pd
 #from _utils import *
@@ -11,6 +14,27 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+    
+def parse_inputs(config_file:str)->dotdict:
+    
+    cfg = dotdict(json.load(open(config_file,'r')))
+    
+    if len(sys.argv) > 1:
+        for i,arg in enumerate(sys.argv[1:]):
+            if arg == 'GPU':
+                cfg.gpu = True
+            if arg == '-s':
+                cfg.solar_scaler = float(sys.argv[i+2])
+
+    cfg.output_filename_stub = f'Output/caltech_ev_mjw{__version__}_solar{cfg.solar_scaler:.1f}x_'
+
+    if cfg.gpu:
+        cfg.data_dir = r'C:/Users/Admin/OneDrive - Politecnico di Milano/Data'
+        cfg.output_filename_stub += 'GPU_'
+    else:
+        cfg.data_dir = r'~/OneDrive/Data'
+        
+    return cfg
 
 def h(*args)->list:
     """ Create list of hours per day that defines a TOU period
@@ -28,9 +52,15 @@ def h(*args)->list:
 
 class TimeOfUseTariff:
     
-    def __init__(self, tou_definition):
+    def __init__(self, tou_raw):
         self.overlap = False # if True some hours are in multiple periods
-        self.periods = [dotdict(x) for x in tou_definition]
+        if isinstance(tou_raw,str):
+            tou_raw = json.load(open(tou_raw,'r'))
+        if isinstance(tou_raw,dict):
+            self.periods = [dotdict(tou_raw[key]) for key in tou_raw.keys()]
+        elif isinstance(tou_raw,list):
+            self.periods = [dotdict(x) for x in tou_raw]
+        self.create_hour_list()
         self.levels = len([x for x in self.periods if 1 in x['months']])
         self.check()
         print(f'Periods: {len(self.periods)} (overlap {self.overlap})')
@@ -38,7 +68,15 @@ class TimeOfUseTariff:
         
     def __len__(self): # small backwards compatability hack so len(tou) returns the number of levels
         return self.levels
-        
+    
+    def create_hour_list(self):
+        for period in self.periods:
+            hours = []
+            for subperiod in period['from_to_h']:
+                begin,end = subperiod[0],subperiod[1]
+                hours += h((begin,end))
+            period['hours'] = hours
+            
     def check(self):
         for month in range(1,13):
             # has power and energy price (or is zero)
@@ -507,7 +545,7 @@ def grad_f4t(th_i,df_month,angle,batt_kwh,tou):
     return (c0_0-c0_1,c1_0-c1_1,c2_0-c2_1,c3_0-c3_1)
 
 
-def optimize_thresholds(df,tou,angles,batt_kwhs,output_filename_stub='Output/bifacil_peak_shaving_',test=False,tou1_dead=True,):
+def optimize_thresholds(cfg,df,tou,test=False,tou1_dead=True,):
     """ Grid search and then gradient descent optimization of peak shaving thresholds. Option to 
     not optimize the second (tou1) TOU window, but instead to hold it equal to the first (tou0).
 
@@ -523,6 +561,7 @@ def optimize_thresholds(df,tou,angles,batt_kwhs,output_filename_stub='Output/bif
         tou1_dead (bool, optional): don't optimize the second (tou1) window, make value equal to
             first window (tou0). Defaults to True.
     """
+    angles,batt_kwhs,output_filename_stub=cfg.solar_angles,cfg.batt_kwhs,cfg.output_filename_stub
 
     year_months = [f'{y}-{m}' for y in df.index.year.unique() for m in df.loc[str(y)].index.month.unique()]
 
@@ -776,3 +815,52 @@ def reload_outputs(filename):
         results[f'{angle} red%'] = (100*(results.s20 - results[angle])/results.s20).round(2)
 
     return results
+
+
+def read_load_data(cfg):
+    load = pd.read_csv(cfg.data_dir + cfg.load_file,
+                    index_col=0,
+                    parse_dates=True,
+                    comment='#',)
+    load = load.fillna(method='ffill')
+    load = load.loc['2018-5-1':'2019-2-28']
+    return load
+
+
+def read_and_scale_solar(cfg,load_index):
+    dir_solar = cfg.data_dir + cfg.solar_files
+    s20 = pd.concat((pd.read_csv(dir_solar+'pasadena_2018_15min_367mods_s20.csv',index_col=0,parse_dates=True,comment='#'),
+                    pd.read_csv(dir_solar+'pasadena_2019_15min_367mods_s20.csv',index_col=0,parse_dates=True,comment='#')))
+
+    w90 = pd.concat((pd.read_csv(dir_solar+'pasadena_2018_15min_367mods_w90.csv',index_col=0,parse_dates=True,comment='#'),
+                    pd.read_csv(dir_solar+'pasadena_2019_15min_367mods_w90.csv',index_col=0,parse_dates=True,comment='#')))
+
+    s20w90 = pd.concat((pd.read_csv(dir_solar+'pasadena_2018_15min_367mods_s20w90.csv',index_col=0,parse_dates=True,comment='#'),
+                        pd.read_csv(dir_solar+'pasadena_2019_15min_367mods_s20w90.csv',index_col=0,parse_dates=True,comment='#')))
+
+    s20w90_25_75 = 0.25*s20 + 0.75*w90
+    s20w90_50_50 = 0.50*s20 + 0.50*w90
+    s20w90_75_25 = 0.75*s20 + 0.25*w90
+    solar = pd.concat((s20,w90,s20w90_25_75, s20w90_50_50, s20w90_75_25 ),axis=1)
+    solar.columns = cfg.solar_angles
+    solar = solar.loc[load_index] # make same length as load
+    solar = solar * cfg.solar_scaler
+    return solar
+    
+def calculate_net_load(load,solar):
+    solar.index = load.index # seems unnecessary
+    df = pd.concat((load,solar),axis=1)
+    df.columns = ['load'] + ['solar_'+x for x in solar.columns]
+    for angle in solar.columns:
+        df[f'netload_{angle}'] = df['load'] - solar[angle]
+    return df    
+
+# %%
+if __name__ == '__main__':
+        
+    cfg = parse_inputs('caltech_ev.json')
+    load = read_load_data(cfg)
+    solar = read_and_scale_solar(cfg,load.index)
+    net_load = calculate_net_load(load,solar)        
+    tou = TimeOfUseTariff(cfg.tou)
+    optimize_thresholds(cfg,net_load,tou,test=True)

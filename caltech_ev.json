@@ -1,0 +1,84 @@
+{
+    "gpu": true,
+    "solar_scaler": 1.0,
+    "solar_angles": ["s20", "s20w90_25_75", "s20w90_50_50", "s20w90_75_25", "w90"],
+    "batt_kwhs": [25, 50, 75, 100, 125, 150, 200, 400, 600],
+    "load_file": "/Load/Vehicle/ACN/old/acn_caltech.csv",
+    "solar_files": "/Solar/Modelled/",
+    "tou": 
+    {
+        "All Hours sum": {
+            "months": [6, 7, 8, 9],
+            "power_price": 26.07,
+            "energy_price": 0,
+            "from_to_h": [[0, 24], [0, 0], [0, 0]] 
+        },
+        "Off Peak sum": {
+            "months": [6, 7, 8, 9],
+            "power_price": 0,
+            "energy_price": 0.132,
+            "from_to_h": [[0,14],[23,24],[0,0]]
+        },
+        "Partial Peak sum": {
+            "months": [6, 7, 8, 9],
+            "power_price": 6.81,
+            "energy_price": 0.159,
+            "from_to_h": [[14,16],[21,23],[0,0]]
+        },
+        "Peak sum": {
+            "months": [6, 7, 8, 9],
+            "power_price": 32.9,
+            "energy_price": 0.196,
+            "from_to_h": [[16,21],[0,0],[0,0]]
+        },
+        "All Hours win": {
+            "months": [1, 2, 10, 11, 12],
+            "power_price": 26.07,
+            "energy_price": 0,
+            "from_to_h": [[0, 24], [0, 0], [0, 0]] 
+        },
+        "Off Peak win": {
+            "months": [1, 2, 10, 11, 12],
+            "power_price": 0,
+            "energy_price": 0.132,
+            "from_to_h": [[0,14],[23,24],[0,0]]
+        },
+        "Partial Peak win": {
+            "months": [1, 2, 10, 11, 12],
+            "power_price": 0,
+            "energy_price": 0,
+            "from_to_h": [[14,16],[21,23],[0,0]]
+        },
+        "Peak win": {
+            "months": [1, 2, 10, 11, 12],
+            "power_price": 2.2,
+            "energy_price": 0.172,
+            "from_to_h": [[16,21],[0,0],[0,0]]
+        },
+        "All Hours spr": {
+            "months": [3, 4, 5],
+            "power_price": 26.07,
+            "energy_price": 0,
+            "from_to_h": [[0, 24], [0, 0], [0, 0]] 
+        },
+        "Super Off Peak spr": {
+            "months": [3, 4, 5],
+            "power_price": 0,
+            "energy_price": 0.079,
+            "hoursx": [9, 10, 11, 12, 13],
+            "from_to_h": [[9,14],[0,0],[0,0]]
+        },
+        "Off Peak spr": {
+            "months": [3, 4, 5],
+            "power_price": 0,
+            "energy_price": 0.132,
+            "from_to_h": [[0,9],[14,16],[21,24]]
+        },
+        "Peak spr": {
+            "months": [3, 4, 5],
+            "power_price": 2.2,
+            "energy_price": 0.172,
+            "from_to_h": [[16,21],[0,0],[0,0]]
+        }
+    } 
+}
