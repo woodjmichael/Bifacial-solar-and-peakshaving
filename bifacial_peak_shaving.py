@@ -6,6 +6,65 @@ import pandas as pd
 #from _utils import *
 from data_processing import *
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+def h(*args)->list:
+    """ Create list of hours per day that defines a TOU period
+
+    Args:
+        *args (tuple of tuples): each tuple is (begin hour inclusive, end hour exclusive)
+
+    Returns:
+        list: hours of the TOU period
+    """
+    hours = []
+    for h_begin_inclusive,h_end_exclusive in args:
+        hours += list(range(h_begin_inclusive,h_end_exclusive))
+    return hours
+
+class TimeOfUseTariff:
+    
+    def __init__(self, tou_definition):
+        self.overlap = False # if True some hours are in multiple periods
+        self.periods = [dotdict(x) for x in tou_definition]
+        self.levels = len([x for x in self.periods if 1 in x['months']])
+        self.check()
+        print(f'Periods: {len(self.periods)} (overlap {self.overlap})')
+        print('Levels:',self.levels)
+        
+    def __len__(self): # small backwards compatability hack so len(tou) returns the number of levels
+        return self.levels
+        
+    def check(self):
+        for month in range(1,13):
+            # has power and energy price (or is zero)
+            for tou_month in self.get(month):
+                assert tou_month['power_price'] is not None
+                assert tou_month['energy_price'] is not None
+            
+            # each month 1-12 is represented and has the correct number of levels
+            assert len([x for x in self.periods if month in x['months']]) == self.levels
+
+            # each hour 0-23 is represented in 'hours'            
+            hours = []
+            for tou_month in self.get(month):
+                hours += tou_month['hours']
+                
+            if len(hours)>24:
+                self.overlap = True
+                
+            for hour in range(1,24):
+                assert hour in hours
+        
+        print('Tariff check: ok')
+        
+    def get(self,month):
+        return [x for x in self.periods if month in x['months']]
+
 def net_load_peak_reduction_variable_TOU(df:pd.DataFrame,angle1:str,angle2:str)->pd.DataFrame:
     """Calculate the reduction of peak net load for a range of TOU windows
     
@@ -205,7 +264,7 @@ def peak_shaving_sim_4tou(  df:pd.DataFrame,
                             netload_col:str,
                             soe_max:float,                      
                             thresholds:list=None,
-                            TOU:list=None,
+                            tou=None,
                             soe0_pu:float=1,
                             soc=True,
                             utility_chg_max:float=0):
@@ -217,7 +276,7 @@ def peak_shaving_sim_4tou(  df:pd.DataFrame,
         soe_max (float): maximum battery state of energy
         thresholds (float): battery will be dispatched to keep import from utility below this value
             during threshold_h
-        TOU (list of dicts): list of TOU dicts like {'price':float and 'hours':list of ints}
+        tou (list of dicts): list of TOU dicts like {'price':float and 'hours':list of ints}
         soe0 (float): initial battery state of energy
         utility_chg_max (float, optional): max absolute value that battery will charge at during 
             non-TOU hours. Defaults to 0.
@@ -226,16 +285,20 @@ def peak_shaving_sim_4tou(  df:pd.DataFrame,
         (bool,pd.DataFrame): sim failed for this battery size?, dispatch vectors
     """
     
+    if isinstance(tou,TimeOfUseTariff):
+        month = df.index.month.unique()[0]
+        tou = tou.get(month)
+    
     df = df.copy(deep=True) # we'll be modifying this
     interval_min = int(df.index.to_series().diff().mean().seconds/60)
     
-    # TOU
-    if len(TOU)>=1: threshold0_h = TOU[0]['hours']
-    if len(TOU)>=2: threshold1_h = TOU[1]['hours']
-    if len(TOU)>=3: threshold2_h = TOU[2]['hours']
-    if len(TOU)>=4: threshold3_h = TOU[3]['hours']
+    # tou
+    if len(tou)>=1: threshold0_h = tou[0]['hours']
+    if len(tou)>=2: threshold1_h = tou[1]['hours']
+    if len(tou)>=3: threshold2_h = tou[2]['hours']
+    if len(tou)>=4: threshold3_h = tou[3]['hours']
     threshold_all_h = []
-    for tou_level in TOU:
+    for tou_level in tou:
         threshold_all_h += tou_level['hours']
         
     # thresholds
@@ -339,17 +402,30 @@ def calc_power_cost(ds:pd.Series,tou:list,peak_interval_min:int=60)->float:
         cost += max(0,max_power) * price
     return cost
 
-def calc_cost(ds:pd.Series,tou:list,peak_interval_min:int=60)->float:
+def calc_cost(ds:pd.Series,tou,peak_interval_min:int=60)->float:
+    cost = 0
     ds = ds.resample(f'{peak_interval_min}min').mean()
     ds[ds<0] = 0
-    cost = 0
-    for tou_level in tou:
-        power_price = tou_level['power_price']
-        energy_price = tou_level['energy_price']
-        hours = tou_level['hours']
-        max_power = ds[[True if h in hours else False for h in ds.index.hour]].max()
-        energy    = ds[[True if h in hours else False for h in ds.index.hour]].resample('1h').mean().sum()
-        cost += max(0,max_power) * power_price + max(0,energy)*energy_price
+    if isinstance(tou,list):    
+        for tou_level in tou:
+            power_price = tou_level['power_price']
+            energy_price = tou_level['energy_price']
+            hours = tou_level['hours']
+            max_power = ds[[True if h in hours else False for h in ds.index.hour]].max()
+            energy    = ds[[True if h in hours else False for h in ds.index.hour]].resample('1h').mean().sum()
+            cost += max(0,max_power) * power_price + max(0,energy)*energy_price
+    elif isinstance(tou,TimeOfUseTariff):
+        for year in ds.index.year.unique():
+            ds_year = ds[ds.index.year==year]
+            for month in ds_year.index.month.unique():
+                ds_month = ds_year[ds_year.index.month==month]
+                for tou_level in tou.get(month):
+                    power_price = tou_level.power_price
+                    energy_price = tou_level.energy_price
+                    hours = tou_level.hours
+                    max_power = ds_month[[True if h in hours else False for h in ds_month.index.hour]].max()
+                    energy    = ds_month[[True if h in hours else False for h in ds_month.index.hour]].resample('1h').mean().sum()
+                    cost += max(0,max_power) * power_price + max(0,energy)*energy_price
     return cost
 
 def f(thresholds,df_month,angle,batt_kwh,tou):
@@ -680,3 +756,23 @@ def optimize_thresholds(df,tou,angles,batt_kwhs,output_filename_stub='Output/bif
     # r.loc[r.fail==True,'c (fail)'] = r[r.fail==True].c
     # r[['c','c (fail)']].plot()
     print('Elapsed',pd.Timestamp.now()-tic)
+
+def reload_outputs(filename):
+    output = pd.read_csv(filename,index_col=0)
+    output = output[['angle','batt kwh','total cost']]
+    angles = list(output.angle.unique())
+    batt_sizes = output['batt kwh'].unique()
+    results = pd.DataFrame([],index=batt_sizes)
+
+    # cost
+    for angle in angles:
+        results[angle] = output[output.angle==angle]['total cost'].values.round(0)
+
+    angles.remove('s20')
+
+    # cost reduction
+    for angle in angles:
+        results[f'{angle} red'] = (results.s20 - results[angle]).round(0)
+        results[f'{angle} red%'] = (100*(results.s20 - results[angle])/results.s20).round(2)
+
+    return results
