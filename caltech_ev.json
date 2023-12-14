@@ -1,10 +1,17 @@
 {
+    "version": 17,
+    "data_dir": "~/OneDrive/Data",
+    "data_dir_gpu": "C:/Users/Admin/OneDrive - Politecnico di Milano/Data",
     "gpu": false,
     "load_file": "/Load/Vehicle/ACN/old/acn_caltech.csv",
     "solar_files": "/Solar/Modelled/",
     "solar_scaler": 1.0,
-    "solar_angles": ["s20", "s20w90_75_25", "s20w90_50_50", "s20w90_25_75", "w90"],
-    "batt_kwhs": [5,10,15,20,25,35,45],
+    "solar_angles": ["s20"],
+    "xsolar_angles": ["s20", "s20w90_75_25", "s20w90_50_50", "s20w90_25_75", "w90"],
+    "batt_kwhs": [10],
+    "xbatt_kwhs": [5,10,15,20,25,35,45],
+    "sim_begin":"2018-5-1",
+    "sim_end":"2019-2-28",
     "tou": 
     {
         "All Hours sum": {

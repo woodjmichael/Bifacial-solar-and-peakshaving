@@ -1,4 +1,4 @@
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 from os import listdir
@@ -95,10 +95,10 @@ class Data:
                 'Etc/GMT+7':'MST',
                 'Etc/GMT+6':'CST',
                 'Etc/GMT+5':'EST'}[tz]        
-
+        
 
     def analyze_autocorr(me,ds,lags_h=[0.25, 1, 2, 24, 7*24],lags_range=None):
-        ds = ds.fillna(0)
+        ds = fillna(ds,0)
         output = 'autocorr:'
         if lags_range is not None:
             for i in arange(lags_range[0],lags_range[1],lags_range[2]):
@@ -452,8 +452,8 @@ class Data:
             print('no data')
         else:
             print(f'NaNs found {me.df.isna().sum()}')
-            me.df = me.df.fillna('ffill')
-            me.df = me.df.fillna('bffil') # in case the first value is nan
+            me.df = me.df.ffill()
+            me.df = me.df.bfill() # in case the first value is nan
 
       
     def analyze_index(me, show_gaps=False):
@@ -829,6 +829,9 @@ class Data:
 # Functions
 #
 #       
+
+def fillna(ds:pd.Series):
+    return ds.replace(np.nan, 0)
         
 def order_of_magnitude(x:float)->int:
     """ Calculate order of magnitude
@@ -847,7 +850,7 @@ def upsample_ffill(df,periods,freq):
     df2 = pd.DataFrame([],index=pd.date_range(df.index[0],periods=periods,freq=freq))
     for col in df.columns:
         df2.loc[df.index,col] = df[col].values
-    df2 = df2.fillna(method='ffill')
+    df2 = df2.ffill()
     return df2
 
 

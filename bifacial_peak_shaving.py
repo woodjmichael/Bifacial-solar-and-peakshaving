@@ -1,13 +1,19 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = '16'
+__version__ = 17
 import sys
 import json
 import pandas as pd
 import numpy as np
+import warnings
 from data_processing import calc_monthly_peaks, order_of_magnitude
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
+# FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.
+# In a future version, this will no longer exclude empty or all-NA columns when determining the
+# result dtypes. To retain the old behavior, exclude the relevant entries before the concat
+# operation.
 
 class dotdict(dict):
     '''dot.notation access to dictionary attributes'''
@@ -19,6 +25,8 @@ class dotdict(dict):
 
 def parse_inputs(config_file: str) -> dotdict:
     cfg = dotdict(json.load(open(config_file, 'r')))
+    
+    assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'
 
     if len(sys.argv) > 1:
         for i, arg in enumerate(sys.argv[1:]):
@@ -28,14 +36,12 @@ def parse_inputs(config_file: str) -> dotdict:
                 cfg.solar_scaler = float(sys.argv[i + 2])
 
     cfg.output_filename_stub = (
-        f'Output/caltech_ev_mjw{__version__}_solar{cfg.solar_scaler:.1f}x_'
+        f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_'
     )
 
     if cfg.gpu:
-        cfg.data_dir = r'C:/Users/Admin/OneDrive - Politecnico di Milano/Data'
+        cfg.data_dir = cfg.data_dir_gpu
         cfg.output_filename_stub += 'GPU_'
-    else:
-        cfg.data_dir = r'~/OneDrive/Data'
 
     return cfg
 
@@ -733,6 +739,126 @@ def grad_f4t(th_i, df_month, angle, batt_kwh, tou):
     return (c0_0 - c0_1, c1_0 - c1_1, c2_0 - c2_1, c3_0 - c3_1)
 
 
+def reload_outputs(filename):
+    output = pd.read_csv(filename, index_col=0)
+    output = output[['angle', 'batt kwh', 'total cost']]
+    angles = list(output.angle.unique())
+    batt_sizes = output['batt kwh'].unique()
+    results = pd.DataFrame([], index=batt_sizes)
+
+    # cost
+    for angle in angles:
+        results[angle] = output[output.angle == angle]['total cost'].values.round(0)
+
+    angles.remove('s20')
+
+    # cost reduction
+    for angle in angles:
+        results[f'{angle} red'] = (results.s20 - results[angle]).round(0)
+
+    # cost reduction percent
+    for angle in angles:
+        results[f'{angle} red%'] = (
+            100 * (results.s20 - results[angle]) / results.s20
+        ).round(2)
+
+    return results
+
+
+def read_load_data(cfg):
+    load = pd.read_csv(
+        cfg.data_dir + cfg.load_file,
+        index_col=0,
+        parse_dates=True,
+        comment='#',
+    )
+    load = load.ffill()
+    load = load.loc[cfg.sim_begin:cfg.sim_end]
+    return load
+
+
+def read_and_scale_solar(cfg, load_index):
+    dir_solar = cfg.data_dir + cfg.solar_files
+    s20 = pd.concat(
+        (
+            pd.read_csv(
+                dir_solar + 'pasadena_2018_15min_367mods_s20.csv',
+                index_col=0,
+                parse_dates=True,
+                comment='#',
+            ),
+            pd.read_csv(
+                dir_solar + 'pasadena_2019_15min_367mods_s20.csv',
+                index_col=0,
+                parse_dates=True,
+                comment='#',
+            ),
+        )
+    )
+
+    w90 = pd.concat(
+        (
+            pd.read_csv(
+                dir_solar + 'pasadena_2018_15min_367mods_w90.csv',
+                index_col=0,
+                parse_dates=True,
+                comment='#',
+            ),
+            pd.read_csv(
+                dir_solar + 'pasadena_2019_15min_367mods_w90.csv',
+                index_col=0,
+                parse_dates=True,
+                comment='#',
+            ),
+        )
+    )
+
+    # s20w90 = pd.concat(
+    #     (
+    #         pd.read_csv(
+    #             dir_solar + 'pasadena_2018_15min_367mods_s20w90.csv',
+    #             index_col=0,
+    #             parse_dates=True,
+    #             comment='#',
+    #         ),
+    #         pd.read_csv(
+    #             dir_solar + 'pasadena_2019_15min_367mods_s20w90.csv',
+    #             index_col=0,
+    #             parse_dates=True,
+    #             comment='#',
+    #         ),
+    #     )
+    # )
+
+    solar = pd.concat((s20, w90), axis=1)
+    solar.columns = ['s20', 'w90']
+
+    combination_angles = cfg.solar_angles.copy()
+    if 's20' in combination_angles:
+        combination_angles.remove('s20')
+    if 'w90' in combination_angles:
+        combination_angles.remove('w90')
+
+    for angle in combination_angles:
+        s20_frac = float(angle.split('_')[1]) / 100
+        w90_frac = float(angle.split('_')[2]) / 100
+        combination = s20_frac * s20 + w90_frac * w90
+        solar.insert(len(solar.columns) - 1, angle, combination)
+
+    solar = solar.loc[load_index]  # make same length as load
+    solar = solar * cfg.solar_scaler
+    return solar
+
+
+def calculate_net_load(load, solar):
+    solar.index = load.index  # seems unnecessary
+    df = pd.concat((load, solar), axis=1)
+    df.columns = ['load'] + ['solar_' + x for x in solar.columns]
+    for angle in solar.columns:
+        df[f'netload_{angle}'] = df['load'] - solar[angle]
+    return df
+
+
 def optimize_thresholds(
     cfg,
     df,
@@ -815,6 +941,8 @@ def optimize_thresholds(
                         'dc',
                     ],
                 )
+                # r = pd.DataFrame()
+                #r_cols = ['i', 'fail', 'th0', 'th1', 'th2', 'th3', 'c', 'deltac', 'dc']
 
                 #
                 # Rough grid search
@@ -856,8 +984,27 @@ def optimize_thresholds(
                                     pd.NA,
                                     pd.NA,
                                 ]
+                                # r = pd.concat(
+                                #     [
+                                #         r if not r.empty else None,
+                                #         pd.DataFrame(
+                                #             {
+                                #                 'i': k,
+                                #                 'fail': fail,
+                                #                 'th0': th0,
+                                #                 'th1': th1,
+                                #                 'th2': th2,
+                                #                 'th3': th3,
+                                #                 'c': cost,
+                                #                 'deltac': pd.NA,
+                                #                 'dc': pd.NA,
+                                #             },
+                                #             index=[k],
+                                #         ),
+                                #     ]
+                                # )
 
-                if len(r) > 0:
+                if len(r[r.fail == False]) > 0:
                     best_cost = r[r.fail == False]['c'].min()
                     imin = r[r.fail == False]['c'].idxmin()
                     best_th0 = r.loc[imin].th0
@@ -866,9 +1013,9 @@ def optimize_thresholds(
                     best_th3 = r.loc[imin].th3
                 else:
                     print(
-                        f'\n\n\n /// No viable solutions for angle {angle} batt_kwh {batt_kwh} year-month {year_month} rough_search_max {rough_search_max}/// \n\n\n'
+                        f'\n\n\n /// No viable solutions for angle {angle} batt_kwh {batt_kwh} year-month {year_month} rough_search_max {rough_search_max} /// \n\n\n'
                     )
-                    break
+                    sys.exit()
 
                 t_rgs = pd.Timestamp.now()
                 dt = (t_rgs - t_newmonth).seconds
@@ -916,6 +1063,25 @@ def optimize_thresholds(
                                 )
                                 # if fail == False:
                                 cost = calc_cost(dispatch.utility, tou)
+                                # r = pd.concat(
+                                #     [
+                                #         r if not r.empty else None,
+                                #         pd.DataFrame(
+                                #             {
+                                #                 'i': k,
+                                #                 'fail': fail,
+                                #                 'th0': th0,
+                                #                 'th1': th1,
+                                #                 'th2': th2,
+                                #                 'th3': th3,
+                                #                 'c': cost,
+                                #                 'deltac': pd.NA,
+                                #                 'dc': pd.NA,
+                                #             },
+                                #             index=[k],
+                                #         ),
+                                #     ]
+                                # )
                                 r.loc[len(r)] = [
                                     k,
                                     fail,
@@ -974,6 +1140,25 @@ def optimize_thresholds(
                     cost, fail, dispatch = f4t(th[i], _df, angle, batt_kwh, tou)
                     c.append(cost)
 
+                    # r = pd.concat(
+                    #     [
+                    #         r if not r.empty else None,
+                    #         pd.DataFrame(
+                    #             {
+                    #                 'i': i + k,
+                    #                 'fail': fail,
+                    #                 'th0': round(th[i][0], 3),
+                    #                 'th1': round(th[i][1], 3),
+                    #                 'th2': round(th[i][2], 3),
+                    #                 'th3': round(th[i][3], 3),
+                    #                 'c': c[i],
+                    #                 'deltac': c[i] - c[i - 1],
+                    #                 'dc': [round(x, 3) for x in dc],
+                    #             },
+                    #             index=[i + k],
+                    #         ),
+                    #     ]
+                    # )
                     r.loc[len(r)] = [
                         i + k,  # k from rough/fine searches
                         fail,
@@ -1084,124 +1269,6 @@ def optimize_thresholds(
     print('Elapsed', pd.Timestamp.now() - tic)
 
 
-def reload_outputs(filename):
-    output = pd.read_csv(filename, index_col=0)
-    output = output[['angle', 'batt kwh', 'total cost']]
-    angles = list(output.angle.unique())
-    batt_sizes = output['batt kwh'].unique()
-    results = pd.DataFrame([], index=batt_sizes)
-
-    # cost
-    for angle in angles:
-        results[angle] = output[output.angle == angle]['total cost'].values.round(0)
-
-    angles.remove('s20')
-
-    # cost reduction
-    for angle in angles:
-        results[f'{angle} red'] = (results.s20 - results[angle]).round(0)
-    
-    # cost reduction percent 
-    for angle in angles:
-        results[f'{angle} red%'] = (
-            100 * (results.s20 - results[angle]) / results.s20
-        ).round(2)
-
-    return results
-
-
-def read_load_data(cfg):
-    load = pd.read_csv(
-        cfg.data_dir + cfg.load_file,
-        index_col=0,
-        parse_dates=True,
-        comment='#',
-    )
-    load = load.fillna(method='ffill')
-    load = load.loc['2018-5-1':'2019-2-28']
-    return load
-
-
-def read_and_scale_solar(cfg, load_index):
-    dir_solar = cfg.data_dir + cfg.solar_files
-    s20 = pd.concat(
-        (
-            pd.read_csv(
-                dir_solar + 'pasadena_2018_15min_367mods_s20.csv',
-                index_col=0,
-                parse_dates=True,
-                comment='#',
-            ),
-            pd.read_csv(
-                dir_solar + 'pasadena_2019_15min_367mods_s20.csv',
-                index_col=0,
-                parse_dates=True,
-                comment='#',
-            ),
-        )
-    )
-
-    w90 = pd.concat(
-        (
-            pd.read_csv(
-                dir_solar + 'pasadena_2018_15min_367mods_w90.csv',
-                index_col=0,
-                parse_dates=True,
-                comment='#',
-            ),
-            pd.read_csv(
-                dir_solar + 'pasadena_2019_15min_367mods_w90.csv',
-                index_col=0,
-                parse_dates=True,
-                comment='#',
-            ),
-        )
-    )
-
-    # s20w90 = pd.concat(
-    #     (
-    #         pd.read_csv(
-    #             dir_solar + 'pasadena_2018_15min_367mods_s20w90.csv',
-    #             index_col=0,
-    #             parse_dates=True,
-    #             comment='#',
-    #         ),
-    #         pd.read_csv(
-    #             dir_solar + 'pasadena_2019_15min_367mods_s20w90.csv',
-    #             index_col=0,
-    #             parse_dates=True,
-    #             comment='#',
-    #         ),
-    #     )
-    # )
-    
-    solar = pd.concat((s20, w90), axis=1)
-    solar.columns = ['s20','w90']
-    
-    combination_angles = cfg.solar_angles.copy()
-    combination_angles.remove('s20')
-    combination_angles.remove('w90')
-
-    for angle in combination_angles:
-        s20_frac = float(angle.split('_')[1])/100
-        w90_frac = float(angle.split('_')[2])/100
-        combination = s20_frac*s20 + w90_frac*w90
-        solar.insert(len(solar.columns)-1,angle,combination)
-    
-    solar = solar.loc[load_index]  # make same length as load
-    solar = solar * cfg.solar_scaler
-    return solar
-
-
-def calculate_net_load(load, solar):
-    solar.index = load.index  # seems unnecessary
-    df = pd.concat((load, solar), axis=1)
-    df.columns = ['load'] + ['solar_' + x for x in solar.columns]
-    for angle in solar.columns:
-        df[f'netload_{angle}'] = df['load'] - solar[angle]
-    return df
-
-
 # %%
 if __name__ == '__main__':
     cfg = parse_inputs('caltech_ev.json')
@@ -1209,4 +1276,4 @@ if __name__ == '__main__':
     solar = read_and_scale_solar(cfg, load.index)
     net_load = calculate_net_load(load, solar)
     tou = TimeOfUseTariff(cfg.tou)
-    optimize_thresholds(cfg, net_load, tou, test=True)
+    optimize_thresholds(cfg, net_load, tou )# , test=True)
