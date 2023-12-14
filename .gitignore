@@ -2,6 +2,7 @@
 /Data/*
 /Archive/*
 /Paper/tex/*.png
+/Output/*
 CFshape.csv
 r.csv
 /__pycache__/*
