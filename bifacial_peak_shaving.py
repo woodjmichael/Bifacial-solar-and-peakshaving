@@ -23,17 +23,10 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 
-def parse_inputs(config_file: str) -> dotdict:
+def read_configs(config_file: str) -> dotdict:
     cfg = dotdict(json.load(open(config_file, 'r')))
     
     assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'
-
-    if len(sys.argv) > 1:
-        for i, arg in enumerate(sys.argv[1:]):
-            if arg == 'GPU':
-                cfg.gpu = True
-            if arg == '-s':
-                cfg.solar_scaler = float(sys.argv[i + 2])
 
     cfg.output_filename_stub = (
         f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_'
@@ -901,8 +894,8 @@ def optimize_thresholds(
     if test == True:
         angles, batt_kwhs, year_months = angles[:1], batt_kwhs[:1], year_months[:1]
 
-    rough_search_max = 100
-    rough_step = 10
+    rough_search_max = cfg.grid_search_max
+    rough_step = cfg.grid_search_step
 
     tic = pd.Timestamp.now()
 
@@ -1271,9 +1264,9 @@ def optimize_thresholds(
 
 # %%
 if __name__ == '__main__':
-    cfg = parse_inputs('caltech_ev.json')
+    cfg = read_configs('caltech_ev.json')
     load = read_load_data(cfg)
     solar = read_and_scale_solar(cfg, load.index)
     net_load = calculate_net_load(load, solar)
     tou = TimeOfUseTariff(cfg.tou)
-    optimize_thresholds(cfg, net_load, tou )# , test=True)
+    optimize_thresholds(cfg, net_load, tou , test=True)
