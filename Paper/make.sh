@@ -6,4 +6,6 @@ pdflatex -interaction=nonstopmode paper;
 bibtex paper;
 pdflatex -interaction=nonstopmode paper;
 pdflatex -interaction=nonstopmode paper;
-mv paper.pdf ../paper.pdf;
+rm paper.tex
+rm mendeley.bib
+mv paper.pdf ../paper.pdf
