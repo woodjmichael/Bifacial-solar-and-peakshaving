@@ -1341,7 +1341,8 @@ def plotly_stacked_4tou(_df:pd.DataFrame,
                    units_energy='kWh',
                    round_digits=1,
                    upsample_min=None,
-                   template='plotly_white'):
+                   template='plotly_white',
+                   save_path=None):
     """ Make plotly graph with some data stacked in area-fill style.
     
     Template options are :['ggplot2', 'seaborn', 'simple_white', 'plotly',
@@ -1558,6 +1559,9 @@ def plotly_stacked_4tou(_df:pd.DataFrame,
         fig.update_yaxes(range=(ylim[0], ylim[1]),secondary_y=False)
         
     fig.show()
+    
+    if save_path is not None:
+        fig.write_image(save_path)    
     
 #
 #
