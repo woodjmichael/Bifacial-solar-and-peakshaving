@@ -12,6 +12,7 @@ r.csv
 *.bbl
 *.blg
 *.out
+*.loc
 /Paper/*.log
 /Paper/tex/*.log
 /Paper/Definitions/*.log
