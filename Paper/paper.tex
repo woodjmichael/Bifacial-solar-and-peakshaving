@@ -242,11 +242,11 @@ The total retail electric cost \(C\) for each month is then the sum of the energ
     C_m           & = \sum_k^K [p_{p,k,m}  max(SL^+_{k,m})] + \sum_k^K [p_{e,k,m} \sum (SL^+_{k,m}\Delta t) ] \\
                   & \text{where:}                                                                             \\
     SL_{k,m}^+(t) & = SL(t) \forall SL(t)>0 \text{ in TOU period $k$ and month $m$}                           \\
-    C_m           & \in \mathbb{R}^+ [\$] \text{ is total retail electric cost for month}\ m\                 \\
-    p_{p,k,m}     & \in \mathbb{R}^+ [\$/kW] \text{ is power price for TOU period}\ k\ \text{and month}\ m\   \\
-    p_{e,k,m}     & \in \mathbb{R}^+ [\$/kWh] \text{ is energy price for TOU period}\ k\ \text{and month}\ m\ \\
+    C_m           & \in \mathbb{R}^+ (\$) \text{ is total retail electric cost for month}\ m\                 \\
+    p_{p,k,m}     & \in \mathbb{R}^+ (\$/kW) \text{ is power price for TOU period}\ k\ \text{and month}\ m\   \\
+    p_{e,k,m}     & \in \mathbb{R}^+ (\$/kWh) \text{ is energy price for TOU period}\ k\ \text{and month}\ m\ \\
     K             & \in \mathbb{Z}^+ \text{ is the number of TOU periods} \\
-    \Delta t      & = 0.25 [h] \\
+    \Delta t      & = 0.25 h \\
   \end{split}
 \end{equation}
 
@@ -280,8 +280,8 @@ The optimal demand thresholds (one per TOU period) are determined by a custom gr
     B_d(t)            & \le B_{d,max}                                                                                      \\
     SOC_{min}         & \le SOC \le SOC_{max}                                                                              \\
                       & \text{where:}                                                                                      \\
-    T_k               & \in \mathbb{R}^+ [kW] \text{ is threshold for}\ k\text{-th TOU period of}\ K\ \text{total periods} \\
-    SOC(t)            & \in \mathbb{R}^+ \le 1 [kWh/kWh]  \text{ is battery state of charge timeseries}\                   \\
+    T_k               & \in \mathbb{R}^+ (kW) \text{ is threshold for}\ k\text{-th TOU period of}\ K\ \text{total periods} \\
+    SOC(t)            & \in \mathbb{R}^+ \le 1 (kWh/kWh)  \text{ is battery state of charge timeseries}\                   \\
   \end{split}
 \end{equation}
 
