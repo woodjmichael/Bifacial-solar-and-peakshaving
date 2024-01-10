@@ -125,7 +125,7 @@ $^{2}$ \quad muGrid Analyics LLC., 14143 Denver West Parkway Ste 100, Golden, CO
 
 The renewable energy transition will oversee a global shift toward electric energy consumption and renewable electric energy production in the coming decades. Since most electric transmission and distribution networks were built slowly over many decades, electric load growth will almost definitely outpace network upgrades. And where these upgrades are completed they are necessarily an additional cost paid by all electricity consumers, due to the decrease in the load factor. Furthermore, in some markets where companies can own both generation and distribution, business-as-usual infrastructure upgrades with cost plus or rate of return regulation may be prioritized over the new construction of more complex and financially riskier renewable generators \cite{Wagner2019}. For these reasons, two important solution areas for overall clean generation deployment speed and cost-effectiveness are distributed energy production and peak load reduction, or peak shaving.
 
-Two new categories of load growth that will strain electric networks in most countries are electric heating and cooling, including traditional air conditioning and heat pumps, and Electric vehicle (EV) charging \cite{Bobmann2015}. Heat pump and air conditioning load factor may be increased with architectural features such as insulation and thermal storage, but building efficiency retrofits often experience barriers such as regulation and financing mechanisms due to permitting and other challenges \cite{Bertone2016}. Meanwhile, extreme weather events, especially heat waves, will likely further reduce the load factor of these loads \cite{Villa2022}. EV charging load differs in that consumers will have the flexibility to slowly charge overnight at home for convenience and to minimize their energy costs. However, workplace, fleet, and public EV charging stations will likely still be required and will experience large peaks as consumers require the convenience of fast charging at stations capable of hundreds of kW per vehicle.
+Two new categories of load growth that will strain electric networks in most countries are electric heating and cooling, including traditional air conditioning and heat pumps, and Electric Vehicle (EV) charging \cite{Bobmann2015}. Heat pump and air conditioning load factor may be increased with architectural features such as insulation and thermal storage, but building efficiency retrofits often experience barriers such as regulation and financing mechanisms due to permitting and other challenges \cite{Bertone2016}. Meanwhile, extreme weather events, especially heat waves, will likely further reduce the load factor of these loads \cite{Villa2022}. EV charging load differs in that consumers will have the flexibility to slowly charge overnight at home for convenience and to minimize their energy costs. However, workplace, fleet, and public EV charging stations will likely still be required and will experience large peaks as consumers require the convenience of fast charging at stations capable of hundreds of kW per vehicle.
 
 Even in cases where the electric load isn't growing, solar Photovoltaic (PV) arrays that are large relative to the load will create relative peaks and valleys in the load seen by the network as clouds pass overhead. As the solar ramp-down rate due to clouds can be much faster than the ramp-up rate of many traditional thermal generators, grid operators will need to predict and anticipate these relative peaks. With an all-sky camera and machine vision algorithms, 15-minute nowcasting cloud identification may only reach 84.2\% accuracy \cite{Nespoli2022}. The remaining peaks will likely need to be managed by other means.
 
@@ -182,7 +182,7 @@ The methodology of this study is a set of offline simulations involving (a) EV c
 \begin{figure}
   \centering
   \includegraphics[width=7.5cm]{./images/oneline.png}
-  \caption{Charging Site One Line Schematic. Simplified one-line schematic of the simulated EV charging station with true measured EV charging power, modeled on-site solar generation, and a modeled stationary battery for economic peak shaving.}
+  \caption{Charging Site One Line Schematic. Simplified one-line schematic of the EV charging station with true measured EV charging power, modeled on-site solar generation, and a modeled stationary battery for economic peak shaving.}
   \label{fig:oneline}
 \end{figure}
 
@@ -194,14 +194,14 @@ The methodology of this study is a set of offline simulations involving (a) EV c
     NL     & = L - S                                                                              \\
     SL     & = NL - B_d + B_c                                                                     \\
             & \text{where:}                                                                        \\
-    t      & \in \mathbb{R}^+ [h] \text{ is the time step }      \\             
-    NL(t)  & \in \mathbb{R} [kW] \text{ is the net load time series }                             \\
-    L(t)   & \in \mathbb{R}^+ [kW] \text{ is the EV charging load time series }                   \\
-    S(t)   & \in \mathbb{R}^+ [kW] \text{ is the solar production time series }                   \\
-    SL(t)  & \in \mathbb{R} [kW] \text{ is the site load time series seen at the electric meter } \\
-    B_c(t) & \in \mathbb{R}^+ [kW] \text{ is the battery charging load time series }              \\
-    B_d(t) & \in \mathbb{R}^+ [kW] \text{ is the battery discharge time series }                  \\
-    T(t)   & \in \mathbb{R}^+ [kW] \text{ is power threshold }                                    \\
+    t      & \in \mathbb{R}^+ (h) \text{ is the time step }      \\             
+    NL(t)  & \in \mathbb{R} (kW) \text{ is the net load time series }                             \\
+    L(t)   & \in \mathbb{R}^+ (kW) \text{ is the EV charging load time series }                   \\
+    S(t)   & \in \mathbb{R}^+ (kW) \text{ is the solar production time series }                   \\
+    SL(t)  & \in \mathbb{R} (kW) \text{ is the site load time series seen at the electric meter } \\
+    B_c(t) & \in \mathbb{R}^+ (kW) \text{ is the battery charging load time series }              \\
+    B_d(t) & \in \mathbb{R}^+ (kW) \text{ is the battery discharge time series }                  \\
+    T(t)   & \in \mathbb{R}^+ (kW) \text{ is power threshold }                                    \\
   \end{split}
 \end{equation}
 
@@ -255,7 +255,7 @@ Since the problem in question is economic peak shaving, the retail tariff is an 
 %\hypertarget{peak-shaving-algorithm}{%
 \subsection{Peak Shaving Algorithm}\label{peak-shaving-algorithm}%}
 
-An optimal peak shaving strategy is used to minimize the total retail electric cost to the EV charging station. The strategy is operational only and assumes the solar production time series and battery capacity are fixed. The state variable controlled by the algorithm is battery charge or discharge power. However, the algorithm reframes the problem as one of choosing a power threshold \(T\ [kW]\) applied to the point of injection to the grid, the electric meter. The battery is then dispatched, within its technical limits, to hold the net load below the threshold. When the algorithm is successful the different thresholds for each TOU period are met for an entire month. If the battery reaches a technical limit and net load exceeds a threshold, the simulation is not necessarily invalid but is not likely to minimize the retail electric cost to the site for that combination of solar and battery size. The peak shaving logic is described in Figure \ref{fig:peakshaving-flowchart}.
+An optimal peak shaving strategy is used to minimize the total retail electric cost to the EV charging station. The strategy is operational only and assumes the solar production time series and battery capacity are fixed. The state variable controlled by the algorithm is battery charge or discharge power. However, the algorithm reframes the problem as one of choosing a power threshold $T (kW)$ applied to the point of injection to the grid, the electric meter. The battery is then dispatched, within its technical limits, to hold the net load below the threshold. When the algorithm is successful the different thresholds for each TOU period are met for an entire month. If the battery reaches a technical limit and net load exceeds a threshold, the simulation is not necessarily invalid but is not likely to minimize the retail electric cost to the site for that combination of solar and battery size. The peak shaving logic is described in Figure \ref{fig:peakshaving-flowchart}.
 
 \begin{figure}
   \centering
@@ -313,7 +313,7 @@ All case studies use the same electric load and tariff, and solar production cha
     \toprule
     Description                     & Location                                & Type                                                                                                                  & Interval                               & Source                                \\
     \midrule
-    EV charging power $(kW_{ac})$   & Jet Propulsion Lab, Pasadena CA, USA    & Measured and aggregated from multiple  EV chargers at single site                                                     & 10 sec (average downsampled to 15 min) & Caltech ACN (site JPL) \cite{Lee2021} \\
+    EV charging power $(kW)$   & Jet Propulsion Lab, Pasadena CA, USA    & Measured and aggregated from multiple  EV chargers at single site                                                     & 10 sec (average downsampled to 15 min) & Caltech ACN (site JPL) \cite{Lee2021} \\
     Solar irradiance $(W/m^2)$      & GPS: 34.2013, -118.1721 (2x2 km square) & GOES satellite irradiance                                                                                             & 5 min                                  & NSRDB PSMv3 \cite{Sengupta2018}       \\
     PV array production $(kW_{ac})$ & GPS: 34.2013, -118.1721 (2x2 km square) & Modelled from GOES satellite irradiance, 368 Prism Solar 350 W bifacial modules, 368 Enphase IQH 380 W microinverters & 15 min                                 & SAM \cite{NREL2022}                   \\
     \bottomrule
@@ -398,7 +398,7 @@ In Table \ref{tab:total-cost} are some of the data from Figure \ref{fig:total-co
   \label{tab:total-cost}
   \begin{tabularx}{\textwidth}{XXXXXXXX}
     \toprule
-    Battery $[kWh]$ & \multicolumn{3}{l}{Cost $[\$]$} & \multicolumn{2}{l}{Cost Reduction $[\$]$} & \multicolumn{2}{l}{Cost Reduction $[\%]$}                                                                   \\
+    Battery $(kWh)$ & \multicolumn{3}{l}{Cost $(\$)$} & \multicolumn{2}{l}{Cost Reduction $(\$)$} & \multicolumn{2}{l}{Cost Reduction $(\%)$}                                                                   \\
                     & South 20°                       & 50\% West 90°                             & 100\% West 90°                            & 50\% West 90° & 100\% West 90° & 50\% West 90° & 100\% West 90° \\
     \midrule
     25              & 31314                           & 30391                                     & 31730                                     & 923           & -416           & 3.0           & -1.3           \\
@@ -422,9 +422,9 @@ A sensitivity analysis on the size of the solar array is performed with the resu
   \label{tab:solar-sensitivity}
   \begin{tabularx}{\textwidth}{XXXX}
     \toprule
-    Solar Capacity {[}\(kW_{DC}\){]} & Best Case for Cost Reduction         & Best
-    Cost Reduction {[}\${]}          & Best Cost Reduction Battery Capacity
-    {[}kWh{]}                                                                            \\
+    Solar Capacity $(kW_{DC})$ & Best Case for Cost Reduction         & Best
+    Cost Reduction $(\$)$          & Best Cost Reduction Battery Capacity
+    $(\$)$                                                                            \\
     \midrule
     64.4 (0.5x)                      & 50\% West 90°                        & 260  & 25  \\
     128.8 (1.0x)                     & 50\% West 90°                        & 1422 & 100 \\

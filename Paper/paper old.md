@@ -64,9 +64,16 @@ Instead, the power cost (€$/kW \times P_{max}$ ) typically applies to the max 
 
 ```mermaid
 %%{init: {"flowchart": {"defaultRenderer": "elk"}  } }%%
+```
+
+
+
+```mermaid
+%%{init: {'flowchart' : {'curve' : 'stepBefore'}}}%%
 graph LR
 g{Grid} --- m((Electric<br>Meter)) --- d(Distribution)
-d --- ev(EV<br>Chargers) & s(Solar<br>PV) & b(Battery)
+d --- ev(EV<br>Chargers)
+d -.- s("Solar PV<br>(Simulated)") & b("Battery<br>(Simulated)")
 ```
 
 > ***Figure E: Charging Site One Line Schematic.** Simplified one-line schematic of the simulated EV charging station with true measured EV charging power, modelled on-site solar generation, and a modelled stationary battery for economic peak shaving.*
