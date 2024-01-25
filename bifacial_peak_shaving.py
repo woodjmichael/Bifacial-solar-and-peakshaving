@@ -1,7 +1,7 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = 17
+__version__ = 18
 import sys
 import json
 import pandas as pd
@@ -23,10 +23,34 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 
-def read_configs(config_file: str) -> dotdict:
-    cfg = dotdict(json.load(open(config_file, 'r')))
+def parse_inputs(config_file:str=None) -> dotdict:
     
-    assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'
+    if config_file is not None:
+        cfg = dotdict(json.load(open(config_file, 'r')))
+    
+    note = ''
+
+    if len(sys.argv) > 1:
+        for i, arg in enumerate(sys.argv[1:]):
+            if arg[:3] == '--f':
+                break
+            if arg[-4:] == 'json':
+                config_file = arg
+                cfg = dotdict(json.load(open(config_file, 'r')))
+            if arg == '-n':
+                note += '_'+sys.argv[i + 2]
+            if arg == '-s':
+                cfg.solar_scaler = float(sys.argv[i + 2])
+                note += f'_s{cfg.solar_scaler:.1f}'
+            if arg == 'GPU':
+                cfg.gpu = True
+                note += '_GPU'
+            if arg == 'TEST':
+                cfg.test = True
+                note += '_TEST'
+    
+    
+    assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'                
 
     cfg.output_filename_stub = (
         f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_'
@@ -871,10 +895,11 @@ def optimize_thresholds(
         tou1_dead (bool, optional): don't optimize the second (tou1) window, make value equal to
             first window (tou0). Defaults to True.
     '''
-    angles, batt_kwhs, output_filename_stub = (
+    angles, batt_kwhs, output_filename_stub, test = (
         cfg.solar_angles,
         cfg.batt_kwhs,
         cfg.output_filename_stub,
+        cfg.test
     )
 
     year_months = [
@@ -1250,7 +1275,7 @@ def optimize_thresholds(
                 new_row.append((th0, th1, th2, th3))
             output.loc[len(output)] = new_row
             output.to_csv(
-                output_filename_stub + tic.strftime('%y-%m-%d_%H-%M-%S') + '.csv'
+                output_filename_stub + tic.strftime('%y%m%d_%H%M') + '.csv'
             )
 
     # r.loc[r.fail==False,'c'] = r[r.fail==False].c
@@ -1261,9 +1286,9 @@ def optimize_thresholds(
 
 # %%
 if __name__ == '__main__':
-    cfg = read_configs('caltech_ev.json')
-    load = read_load_data(cfg)
+    cfg =   parse_inputs('caltech_ev.json')
+    load =  read_load_data(cfg)
     solar = read_and_scale_solar(cfg, load.index)
     net_load = calculate_net_load(load, solar)
-    tou = TimeOfUseTariff(cfg.tou)
+    tou =   TimeOfUseTariff(cfg.tou)
     optimize_thresholds(cfg, net_load, tou , test=True)
