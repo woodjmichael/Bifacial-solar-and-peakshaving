@@ -88,7 +88,8 @@ class TimeOfUseTariff:
             # has power and energy price (or is zero)
             for tou_month in self.get(month):
                 assert tou_month['power_price'] is not None
-                assert tou_month['energy_price'] is not None
+                assert tou_month['energy_buy_price'] is not None
+                assert tou_month['energy_sell_price'] is not None
 
             # each month 1-12 is represented and has the correct number of levels
             assert len([x for x in self.periods if month in x['months']]) == self.levels
@@ -571,7 +572,7 @@ def calc_power_cost(ds: pd.Series, tou: list, peak_interval_min: int = 60) -> fl
 def calc_cost(ds: pd.Series, tou, peak_interval_min: int = 60) -> float:
     cost = 0
     ds = ds.resample(f'{peak_interval_min}min').mean()
-    ds[ds < 0] = 0
+    #ds[ds < 0] = 0
     if isinstance(tou, list):
         for tou_level in tou:
             power_price = tou_level['power_price']
@@ -592,22 +593,18 @@ def calc_cost(ds: pd.Series, tou, peak_interval_min: int = 60) -> float:
                 ds_month = ds_year[ds_year.index.month == month]
                 for tou_level in tou.get(month):
                     power_price = tou_level.power_price
-                    energy_price = tou_level.energy_price
+                    energy_buy_price = tou_level.energy_buy_price
+                    energy_sell_price = tou_level.energy_sell_price
                     hours = tou_level.hours
-                    max_power = ds_month[
-                        [True if h in hours else False for h in ds_month.index.hour]
-                    ].max()
-                    energy = (
-                        ds_month[
-                            [True if h in hours else False for h in ds_month.index.hour]
-                        ]
-                        .resample('1h')
-                        .mean()
-                        .sum()
-                    )
-                    cost += (
-                        max(0, max_power) * power_price + max(0, energy) * energy_price
-                    )
+                    ds_month_tou = ds_month[[True if h in hours else False for h in ds_month.index.hour]]
+                    max_power = ds_month_tou.max()
+                    ds_month_tou = ds_month_tou.resample('1h').mean()
+                    energy_pos = ds_month_tou[[True if x>0 else False for x in ds_month_tou.values]].sum()
+                    energy_neg = ds_month_tou[[True if x<0 else False for x in ds_month_tou.values]].sum()
+                    
+                    cost += (max(0, max_power) * power_price \
+                            + max(0, energy_pos) * energy_buy_price \
+                            + min(0, energy_neg) * energy_sell_price)
     return cost
 
 

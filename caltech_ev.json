@@ -17,18 +17,18 @@
     "grid_search_step":10,
     "tou": 
     {
-        "All Hours sum": {      "months": [6,7,8,9],        "power_price": 26.07,   "energy_price": 0,      "from_to_h": [[0,24],[0,0],[0,0]]},
-        "Off Peak sum": {       "months": [6,7,8,9],        "power_price": 0,       "energy_price": 0.132,  "from_to_h": [[0,14],[23,24],[0,0]]},
-        "Partial Peak sum": {   "months": [6,7,8,9],        "power_price": 6.81,    "energy_price": 0.159,  "from_to_h": [[14,16],[21,23],[0,0]]},
-        "Peak sum": {           "months": [6,7,8,9],        "power_price": 32.9,    "energy_price": 0.196,  "from_to_h": [[16,21],[0,0],[0,0]]},
-        "All Hours win": {      "months": [1,2,10,11,12],   "power_price": 26.07,   "energy_price": 0,      "from_to_h": [[0,24],[0,0],[0,0]]},
-        "Off Peak win": {       "months": [1,2,10,11,12],   "power_price": 0,       "energy_price": 0.132,  "from_to_h": [[0,14],[23,24],[0,0]]},
-        "Partial Peak win": {   "months": [1,2,10,11,12],   "power_price": 0,       "energy_price": 0,      "from_to_h": [[14,16],[21,23],[0,0]]},
-        "Peak win": {           "months": [1,2,10,11,12],   "power_price": 2.2,     "energy_price": 0.172,  "from_to_h": [[16,21],[0,0],[0,0]]},
-        "All Hours spr": {      "months": [3,4,5],          "power_price": 26.07,   "energy_price": 0,      "from_to_h": [[0,24],[0,0],[0,0]]},
-        "Super Off Peak spr": { "months": [3,4,5],          "power_price": 0,       "energy_price": 0.079,  "from_to_h": [[9,14],[0,0],[0,0]]},
-        "Off Peak spr": {       "months": [3,4,5],          "power_price": 0,       "energy_price": 0.132,  "from_to_h": [[0,9],[14,16],[21,24]]},
-        "Peak spr": {           "months": [3,4,5],          "power_price": 2.2,     "energy_price": 0.172,  "from_to_h": [[16,21],[0,0],[0,0]],
+        "All Hours sum": {      "months": [6,7,8,9],        "power_price": 26.07,   "energy_buy_price": 0,      "energy_sell_price":0,  "from_to_h": [[0,24],[0,0],[0,0]]},
+        "Off Peak sum": {       "months": [6,7,8,9],        "power_price": 0,       "energy_buy_price": 0.132,  "energy_sell_price":0,  "from_to_h": [[0,14],[23,24],[0,0]]},
+        "Partial Peak sum": {   "months": [6,7,8,9],        "power_price": 6.81,    "energy_buy_price": 0.159,  "energy_sell_price":0,  "from_to_h": [[14,16],[21,23],[0,0]]},
+        "Peak sum": {           "months": [6,7,8,9],        "power_price": 32.9,    "energy_buy_price": 0.196,  "energy_sell_price":0,  "from_to_h": [[16,21],[0,0],[0,0]]},
+        "All Hours win": {      "months": [1,2,10,11,12],   "power_price": 26.07,   "energy_buy_price": 0,      "energy_sell_price":0,  "from_to_h": [[0,24],[0,0],[0,0]]},
+        "Off Peak win": {       "months": [1,2,10,11,12],   "power_price": 0,       "energy_buy_price": 0.132,  "energy_sell_price":0,  "from_to_h": [[0,14],[23,24],[0,0]]},
+        "Partial Peak win": {   "months": [1,2,10,11,12],   "power_price": 0,       "energy_buy_price": 0,      "energy_sell_price":0,  "from_to_h": [[14,16],[21,23],[0,0]]},
+        "Peak win": {           "months": [1,2,10,11,12],   "power_price": 2.2,     "energy_buy_price": 0.172,  "energy_sell_price":0,  "from_to_h": [[16,21],[0,0],[0,0]]},
+        "All Hours spr": {      "months": [3,4,5],          "power_price": 26.07,   "energy_buy_price": 0,      "energy_sell_price":0,  "from_to_h": [[0,24],[0,0],[0,0]]},
+        "Super Off Peak spr": { "months": [3,4,5],          "power_price": 0,       "energy_buy_price": 0.079,  "energy_sell_price":0,  "from_to_h": [[9,14],[0,0],[0,0]]},
+        "Off Peak spr": {       "months": [3,4,5],          "power_price": 0,       "energy_buy_price": 0.132,  "energy_sell_price":0,  "from_to_h": [[0,9],[14,16],[21,24]]},
+        "Peak spr": {           "months": [3,4,5],          "power_price": 2.2,     "energy_buy_price": 0.172,  "energy_sell_price":0,  "from_to_h": [[16,21],[0,0],[0,0]],
         "comment": "from_to_h pairs are such that the first value is inclusive and the second value is exclusive (e.g. [14,16] means 14:00 to 15:59)"}
     } 
 }
