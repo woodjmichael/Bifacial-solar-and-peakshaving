@@ -1,7 +1,7 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = 18
+__version__ = 19
 import sys
 import json
 import pandas as pd
@@ -37,23 +37,21 @@ def parse_inputs(config_file:str=None) -> dotdict:
             if arg[-4:] == 'json':
                 config_file = arg
                 cfg = dotdict(json.load(open(config_file, 'r')))
-            if arg == '-n':
-                note += '_'+sys.argv[i + 2]
             if arg == '-s':
                 cfg.solar_scaler = float(sys.argv[i + 2])
-                note += f'_s{cfg.solar_scaler:.1f}'
             if arg == 'GPU':
                 cfg.gpu = True
-                note += '_GPU'
             if arg == 'TEST':
                 cfg.test = True
-                note += '_TEST'
+                note += 'TEST_'                
+            if arg == '-n':
+                note += sys.argv[i + 2] + '_'                
     
     
     assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'                
 
     cfg.output_filename_stub = (
-        f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_'
+        f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_{note}'
     )
 
     if cfg.gpu:
@@ -112,8 +110,7 @@ class TimeOfUseTariff:
             # has power and energy price (or is zero)
             for tou_month in self.get(month):
                 assert tou_month['power_price'] is not None
-                assert tou_month['energy_buy_price'] is not None
-                assert tou_month['energy_sell_price'] is not None
+                assert tou_month['energy_price_buy_sell'] is not None
 
             # each month 1-12 is represented and has the correct number of levels
             assert len([x for x in self.periods if month in x['months']]) == self.levels
@@ -617,8 +614,8 @@ def calc_cost(ds: pd.Series, tou, peak_interval_min: int = 60) -> float:
                 ds_month = ds_year[ds_year.index.month == month]
                 for tou_level in tou.get(month):
                     power_price = tou_level.power_price
-                    energy_buy_price = tou_level.energy_buy_price
-                    energy_sell_price = tou_level.energy_sell_price
+                    energy_price_buy = tou_level.energy_price_buy_sell[0]
+                    energy_price_sell = tou_level.energy_price_buy_sell[1]
                     hours = tou_level.hours
                     ds_month_tou = ds_month[[True if h in hours else False for h in ds_month.index.hour]]
                     max_power = ds_month_tou.max()
@@ -627,8 +624,8 @@ def calc_cost(ds: pd.Series, tou, peak_interval_min: int = 60) -> float:
                     energy_neg = ds_month_tou[[True if x<0 else False for x in ds_month_tou.values]].sum()
                     
                     cost += (max(0, max_power) * power_price \
-                            + max(0, energy_pos) * energy_buy_price \
-                            + min(0, energy_neg) * energy_sell_price)
+                            + max(0, energy_pos) * energy_price_buy \
+                            + min(0, energy_neg) * energy_price_sell)
     return cost
 
 
