@@ -1,7 +1,7 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = 23
+__version__ = 24
 import sys
 import os
 import json
@@ -66,6 +66,11 @@ def parse_inputs(config_file:str=None) -> dotdict:
     if cfg.gpu:
         cfg.data_dir = cfg.data_dir_gpu
         note += 'GPU_'
+    if cfg.energy_price_sell_vector:
+        cfg.energy_price_sell_vector = pd.read_csv( cfg.energy_price_sell_vector,
+                                                    comment='#',
+                                                    index_col=0,
+                                                    parse_dates=True)
     note += cfg.note + '_'
 
     cfg.output_filename_stub = (
@@ -778,6 +783,11 @@ def calc_cost(ds: pd.Series, tou, peak_interval_min: int = 60) -> float:
                     cost += (max(0, max_power) * power_price \
                             + max(0, energy_pos) * energy_price_buy \
                             + min(0, energy_neg) * energy_price_sell)
+                    
+                    if cfg.energy_price_sell_vector is not False:
+                        ds_month = ds_month[ds_month.values<0]
+                        sell_prices = cfg.energy_price_sell_vector.loc[ds_month.index,:]
+                        cost += (ds_month.values * sell_prices.Price.values).sum()
     return cost
 
 
