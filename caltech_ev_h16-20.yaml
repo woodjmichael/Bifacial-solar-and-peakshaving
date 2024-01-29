@@ -1,28 +1,26 @@
 # Use forward slashes '/' in paths, space after the first colon, double quotes around further colons, no trailing comma
 version: 22
-note: prices_GS
+note: DEV_prices_GS
 data_dir: ~/OneDrive/Data
 data_dir_gpu: C:/Users/Admin/OneDrive - Politecnico di Milano/Data
 gpu: false
 test: false
-dev: true
 load_file: /Load/Vehicle/ACN/old/acn_caltech.csv
 solar_files: /Solar/Modelled/
 solar_scaler: 1.0
 solar_angles: [s20, s20w90_50_50, w90]
 #solar_angles: [s20, s20w90_75_25, s20w90_50_50, s20w90_25_75, w90]
-batt_kwhs: [25,50,75,100,125,150,200,400,600]
-power_prices: [5,10,15,20,25,30]
-sell_prices: [0.025, 0.05, 0.075, 0.1, 0.125, 0.15]
+batt_kwhs: [100]
+power_prices: [10,20,30]
+sell_prices: [0.025,0.05,0.075,0.10]
 energy_prices_adder_2: [0.05,0.10,0.15]
-energy_prices_adder_3: [0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.10]
+energy_prices_adder_3: [0.025,0.05,0.075]
 
 #batt_kwhs: [10,25,50,75,100,125,150,175,200,225,250,275,300,325,350,375,400,425,450,475,500,525,550,575,600]
 sim_begin: 2018-5-1
 sim_end: 2019-2-28
 grid_search_max: 110
 grid_search_step: 10
-fine_grid_search_step: 1
 gradient_descent: false
 # each tou period must start with "tou" and then can be any string
 # power price is in $/kW

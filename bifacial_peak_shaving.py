@@ -1,7 +1,7 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = 22
+__version__ = 23
 import sys
 import os
 import json
@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import warnings
 import yaml
-from data_processing import calc_monthly_peaks, order_of_magnitude, plotly_stacked_4tou
+from data_processing import calc_monthly_peaks, order_of_magnitude
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 # FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.
@@ -44,41 +44,41 @@ def parse_inputs(config_file:str=None) -> dotdict:
             if arg[-4:] == 'json':
                 config_file = arg
                 cfg = dotdict(json.load(open(config_file, 'r')))
+            if arg == '-a':
+                cfg.solar_angles = [sys.argv[i + 2]]
+                note += f'a{sys.argv[i + 2]}_'
             if arg == '-s':
                 cfg.solar_scaler = float(sys.argv[i + 2])
+                note += f's{cfg.solar_scaler:.1f}_'
             if arg == 'GPU':
                 cfg.gpu = True
             if arg == 'TEST':
                 cfg.test = True
-                note += 'TEST_'
-            if arg == 'DEV':
-                cfg.dev = True
-                note += 'DEV_'               
+                note += 'TEST_'             
             if arg == '-n':
                 note += sys.argv[i + 2] + '_'     
+                cfg = dotdict(json.load(open(config_file, 'r')))
                 
     cfg['filename'] = config_file           
                 
     if cfg.dev:
         note += 'DEV_'
-    
-    assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'                
-    
+    if cfg.gpu:
+        cfg.data_dir = cfg.data_dir_gpu
+        note += 'GPU_'
     note += cfg.note + '_'
 
     cfg.output_filename_stub = (
         f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_{note}'
     )
 
-    if cfg.gpu:
-        cfg.data_dir = cfg.data_dir_gpu
-        cfg.output_filename_stub += 'GPU_'
-        
     tou = {}
     for key in cfg.keys():
         if key[:3] == 'tou':
             tou[key] = cfg[key]
     cfg.tou = tou
+    
+    assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'                    
 
     return cfg
 
@@ -423,6 +423,7 @@ def peak_shaving_sim_4tou(
     soe0_pu: float = 1,
     soc=True,
     utility_chg_max: float = 0,
+    return_cost = False
 ):
     '''Simulate peak shaving battery dispatch
 
@@ -527,7 +528,10 @@ def peak_shaving_sim_4tou(
             df[[h_0 <= h <= h_f for h in df.index.hour]].utility > (threshold3 + tol)
         )
 
-    return failure, df
+    if return_cost:
+        return failure, df, calc_cost(df.utility, tou)
+    else:
+        return failure, df
 
 def peak_shaving_sim_Xtou(
     df: pd.DataFrame,
@@ -903,6 +907,7 @@ def process_results(filename=None,df=None):
         output = pd.read_csv(filename, index_col=0)
     if df is not None:
         output = df.copy(deep=True)
+        
     output = output[['angle', 'batt kwh', 'total cost']]
     angles = list(output.angle.unique())
     batt_sizes = output['batt kwh'].unique()
@@ -1027,6 +1032,8 @@ def optimize_thresholds(
     tou,
     test=False,
     tou1_is_tou0=True,
+    tou2_is_tou0=True,
+    process_results=True,
 ):
     '''Grid search and then gradient descent optimization of peak shaving thresholds. Option to
     not optimize the second (tou1) TOU window, but instead to hold it equal to the first (tou0).
@@ -1065,32 +1072,37 @@ def optimize_thresholds(
         for m in df.loc[str(y)].index.month.unique()
     ]
 
-    # peak_begin,peak_end = 16,21
-    # TOU = [{'price':26.07,      'hours':list(range(24)) },
-    #        {'price': 6.81,      'hours':list(range(14,peak_begin))+list(range(peak_end,23))},
-    #        {'price':32.90,      'hours':list(range(peak_begin,peak_end))}]
-
-    if test == True:
-        angles, batt_kwhs, year_months = angles[:1], batt_kwhs[:1], year_months[:1]
-
     rough_search_max = cfg.grid_search_max
     rough_step = cfg.grid_search_step
 
     runs = []
-    output = pd.DataFrame([], columns=['angle', 'batt kwh', 'Pp','Ps','Pe2','Pe3', 'total cost'] + year_months)
     for batt_kwh in batt_kwhs:
         for angle in angles:
-            for p_p in cfg.power_prices:
-                for p_s in cfg.sell_prices:
-                    for p_e2 in [x+p_s for x in cfg.energy_prices_adder_2]:
-                        for p_e3 in [x+p_e2 for x in cfg.energy_prices_adder_3]:
-                            runs.append((angle, batt_kwh, p_p, p_s, p_e2, p_e3))
+            if cfg.grid_search_prices:
+                for p_p in cfg.power_prices:
+                    for p_s in cfg.sell_prices:
+                        for p_e2 in [x+p_s for x in cfg.energy_prices_adder_2]:
+                            for p_e3 in [x+p_e2 for x in cfg.energy_prices_adder_3]:
+                                runs.append((angle, batt_kwh, p_p, p_s, p_e2, p_e3))
+            else:
+                runs.append((angle, batt_kwh))
+            
+    if test == True:
+        runs = runs[:1]
+        year_months = year_months[:1]
+    if cfg.grid_search_prices:
+        output = pd.DataFrame([], columns=['angle', 'batt kwh', 'Pp','Ps','Pe2','Pe3', 'total cost'] + year_months)
+    else:
+        output = pd.DataFrame([], columns=['angle', 'batt kwh', 'total cost'] + year_months)
+    
     for run in runs:
-        angle, batt_kwh, p_p, p_s, p_e2, p_e3 = run
-        
-        tou.periods[3].power_price = p_p
-        tou.periods[3].energy_price_buy_sell = [p_e3, p_s]
-        tou.periods[2].energy_price_buy_sell = [p_e2, p_s]
+        if cfg.grid_search_prices:
+            angle, batt_kwh, p_p, p_s, p_e2, p_e3 = run
+            tou.periods[3].power_price = p_p
+            tou.periods[3].energy_price_buy_sell = [p_e3, p_s]
+            tou.periods[2].energy_price_buy_sell = [p_e2, p_s]
+        else:
+            angle, batt_kwh = run
         
         best_monthly = pd.DataFrame(
             [],
@@ -1150,6 +1162,8 @@ def optimize_thresholds(
                 if tou1_is_tou0:
                     th1_range = [th0]
                 for th1 in th1_range:
+                    if tou2_is_tou0:
+                        th2_range = [th0]
                     th1 = min(th0, th1)  # remove if T0 is not 'all hours'
                     for th2 in th2_range:
                         # remove if T0 is not 'all hours'
@@ -1250,6 +1264,8 @@ def optimize_thresholds(
                     th1_range = [th0]
                 for th1 in th1_range:
                     th1 = min(th0, th1)
+                    if tou2_is_tou0:
+                        th2_range = [th0]                    
                     for th2 in th2_range:
                         th2 = min(th0, th2)
                         for th3 in th3_range:
@@ -1442,7 +1458,9 @@ def optimize_thresholds(
         # print(f'Total cost {best_monthly.cost.sum():.1f}')
         # print(best_monthly.T,'\n\n')
 
-        new_row = [angle, batt_kwh, p_p, p_s, p_e2, p_e3, best_monthly.cost.sum()]
+        new_row = [angle, batt_kwh, best_monthly.cost.sum()]
+        if cfg.grid_search_prices:
+            new_row = [angle, batt_kwh, p_p, p_s, p_e2, p_e3, best_monthly.cost.sum()]
         for th0, th1, th2, th3 in zip(
             best_monthly.threshold0,
             best_monthly.threshold1,
@@ -1458,18 +1476,14 @@ def optimize_thresholds(
     # r[['c','c (fail)']].plot()
     print('Elapsed', pd.Timestamp.now() - tic)
     
-    pd.set_option('display.float_format', lambda x: f'{x:.1f}')
-    
-    results = process_results(df=output)
-    
-    results.index = results.index.rename('Battery [kWh]')
-    
-    results.to_csv(outdir+'results.csv')
-    
     os.system(f'cp {cfg.filename} {outdir}{cfg.filename}')
     
-    
-    return results
+    if process_results and not cfg.grid_search_prices:
+        pd.set_option('display.float_format', lambda x: f'{x:.1f}')
+        results = process_results(df=output)
+        results.index = results.index.rename('Battery [kWh]')
+        results.to_csv(outdir+'results.csv')
+        return results
 
 
 # %%
@@ -1477,73 +1491,29 @@ if __name__ == '__main__':
     #
     # Config
     #
-    cfg =   parse_inputs('caltech_ev_h16-20.yaml')
+    cfg =   parse_inputs('caltech_ev.yaml')
     
     #
     # Data
     #
+    tou =   TimeOfUseTariff(cfg.tou)
     load =  read_load_data(cfg)
     solar = read_and_scale_solar(cfg, load.index)
     df = calculate_net_load(load, solar)
-    tou =   TimeOfUseTariff(cfg.tou)
     
     #
     # Single peak shave sim
     #
-    """angle = 's20'
-    thresholds = (1e3,1e3,1e3,21)
-    batt_kwh = 50
-    year,month,day = 2018,9,6
-    fail,dispatch = peak_shaving_sim_4tou(  df[['load',f'solar_{angle}',f'netload_{angle}']]\
-                                    .loc[f'{year}-{month}'],
-                                    f'netload_{angle}',
-                                    batt_kwh,
-                                    thresholds,
-                                    tou.get(month),
-                                    utility_chg_max=batt_kwh,)
-    cost = calc_cost(dispatch.utility,tou)
-    plotly_stacked_4tou( dispatch.drop(columns=['soc']).loc[f'{year}-{month}'],
-                    solar=f'solar_{angle}',
-                    threshold0=thresholds[3], threshold0_h=tou.get(month)[3]['hours'], threshold0_name='Threshold 3',
-                    #threshold1=thresholds[1], threshold1_h=tou.get(month)[1]['hours'], threshold1_name='Threshold 1', 
-                    #threshold2=thresholds[2], threshold2_h=tou.get(month)[2]['hours'], threshold2_name='Threshold 2',
-                    #threshold3=thresholds[3], threshold3_h=tou.get(month)[3]['hours'], threshold3_name='Threshold 3',
-                    title=f'Cost {cost:.1f} ' + {True:'- Failure',False:''}[fail],
-                    units_power='kW',
-                    #size=(500,500),
-                    #ylim=(0,101),
-                    upsample_min=1,
-                    template='plotly_white',
-                    save_path='./peak shaving south.png')
-    
-    angle = 'w90'
-    thresholds = (1e3,1e3,1e3,7)
-    fail,dispatch = peak_shaving_sim_4tou(  df[['load',f'solar_{angle}',f'netload_{angle}']]\
-                                    .loc[f'{year}-{month}'],
-                                    f'netload_{angle}',
-                                    batt_kwh,
-                                    thresholds,
-                                    tou.get(month),
-                                    utility_chg_max=batt_kwh,)
-    cost = calc_cost(dispatch.utility,tou)
-    plotly_stacked_4tou( dispatch.drop(columns=['soc']).loc[f'{year}-{month}'],
-                    solar=f'solar_{angle}',
-                    threshold0=thresholds[3], threshold0_h=tou.get(month)[3]['hours'], threshold0_name='Threshold 3',
-                    #threshold1=thresholds[1], threshold1_h=tou.get(month)[1]['hours'], threshold1_name='Threshold 1', 
-                    #threshold2=thresholds[2], threshold2_h=tou.get(month)[2]['hours'], threshold2_name='Threshold 2',
-                    #threshold3=thresholds[3], threshold3_h=tou.get(month)[3]['hours'], threshold3_name='Threshold 3',
-                    title=f'Cost {cost:.1f} ' + {True:'- Failure',False:''}[fail],
-                    units_power='kW',
-                    #size=(500,500),
-                    #ylim=(0,101),
-                    upsample_min=1,
-                    template='plotly_white',
-                    save_path='./peak shaving south.png')
-    """
+    """fail,dispatch,cost = peak_shaving_sim_4tou( df[['load','solar_w90','netload_w90']].loc['2018-6'],
+                                                'netload_w90',
+                                                soe_max=100,
+                                                thresholds = (1e3,1e3,1e3,21),
+                                                tou=tou.get(6),
+                                                utility_chg_max=100,
+                                                return_cost=True)"""
+
     
     #
     # Optimize
     #
-    results = optimize_thresholds(cfg, df, tou , test=True)
-    
-    print(results)
+    optimize_thresholds(cfg, df, tou , tou1_is_tou0=True, tou2_is_tou0=True, process_results=False)
