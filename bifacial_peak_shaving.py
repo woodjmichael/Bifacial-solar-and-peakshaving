@@ -1,13 +1,14 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = 19
+__version__ = 20
 import sys
+import os
 import json
 import pandas as pd
 import numpy as np
 import warnings
-from data_processing import calc_monthly_peaks, order_of_magnitude
+from data_processing import calc_monthly_peaks, order_of_magnitude, plotly_stacked_4tou
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 # FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.
@@ -43,10 +44,17 @@ def parse_inputs(config_file:str=None) -> dotdict:
                 cfg.gpu = True
             if arg == 'TEST':
                 cfg.test = True
-                note += 'TEST_'                
+                note += 'TEST_'
+            if arg == 'DEV':
+                cfg.dev = True
+                note += 'DEV_'               
             if arg == '-n':
-                note += sys.argv[i + 2] + '_'                
-    
+                note += sys.argv[i + 2] + '_'     
+                
+    cfg['filename'] = config_file           
+                
+    if cfg.dev:
+        note += 'DEV_'
     
     assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'                
 
@@ -341,7 +349,7 @@ def peak_shaving_sim(
     batt, soe = [], []
     for netload, t in zip(df[netload_col], df[netload_col].index):
         if t.hour in threshold_all_h:
-            threshold = 1e6
+            threshold = 1e3
             if t.hour in threshold0_h:
                 threshold = min(threshold, threshold0)
             if t.hour in threshold1_h:
@@ -450,7 +458,7 @@ def peak_shaving_sim_4tou(
     batt, soe = [], []
     for netload, t in zip(df[netload_col], df[netload_col].index):
         if t.hour in threshold_all_h:
-            threshold = 1e6
+            threshold = 1e3
             if t.hour in threshold0_h:
                 threshold = min(threshold, threshold0)
             if t.hour in threshold1_h:
@@ -459,6 +467,127 @@ def peak_shaving_sim_4tou(
                 threshold = min(threshold, threshold2)
             if t.hour in threshold3_h:
                 threshold = min(threshold, threshold3)
+            batt.append(
+                batt_request(soe, netload - threshold, soe0, soe_max, interval_min)
+            )
+        else:
+            batt.append(
+                min(
+                    0,
+                    batt_request(
+                        soe, min(netload, -utility_chg_max), soe0, soe_max, interval_min
+                    ),
+                )
+            )
+        soe.append(update_soe(soe, batt[-1], soe0, interval_min))
+
+    df['batt'] = batt
+    df['soe'] = soe
+    df['utility'] = df[netload_col] - df.batt
+    if soc:
+        df['soc'] = df.soe / soe_max
+
+    # determine if there was a failure
+    h_0, h_f = threshold0_h[0], threshold0_h[-1]
+    failure = any(
+        df[[h_0 <= h <= h_f for h in df.index.hour]].utility > (threshold0 + tol)
+    )
+    if threshold1 is not None:
+        h_0, h_f = threshold1_h[0], threshold1_h[-1]
+        failure = failure or any(
+            df[[h_0 <= h <= h_f for h in df.index.hour]].utility > (threshold1 + tol)
+        )
+    if threshold2 is not None:
+        h_0, h_f = threshold2_h[0], threshold2_h[-1]
+        failure = failure or any(
+            df[[h_0 <= h <= h_f for h in df.index.hour]].utility > (threshold2 + tol)
+        )
+    if threshold3 is not None:
+        h_0, h_f = threshold3_h[0], threshold3_h[-1]
+        failure = failure or any(
+            df[[h_0 <= h <= h_f for h in df.index.hour]].utility > (threshold3 + tol)
+        )
+
+    return failure, df
+
+def peak_shaving_sim_Xtou(
+    df: pd.DataFrame,
+    netload_col: str,
+    soe_max: float,
+    thresholds: list = None,
+    tou=None,
+    soe0_pu: float = 1,
+    soc=True,
+    utility_chg_max: float = 0,
+):
+    '''Simulate peak shaving battery dispatch
+
+    Args:
+        df (pd.DataFrame): load solar and netload data
+        netload_col (str): netload column name
+        soe_max (float): maximum battery state of energy
+        thresholds (float): battery will be dispatched to keep import from utility below this value
+            during threshold_h
+        tou (list of dicts): list of TOU dicts like {'price':float and 'hours':list of ints}
+        soe0 (float): initial battery state of energy
+        utility_chg_max (float, optional): max absolute value that battery will charge at during
+            non-TOU hours. Defaults to 0.
+
+    Returns:
+        (bool,pd.DataFrame): sim failed for this battery size?, dispatch vectors
+    '''
+    
+    threshold0,threshold1,threshold2,threshold3 = None,None,None,None
+
+    if isinstance(tou, TimeOfUseTariff):
+        month = df.index.month.unique()[0]
+        tou = tou.get(month)
+
+    df = df.copy(deep=True)  # we'll be modifying this
+    interval_min = int(df.index.to_series().diff().mean().seconds / 60)
+
+    # tou
+    if len(tou) >= 1:
+        threshold0_h = tou[0]['hours']
+    if len(tou) >= 2:
+        threshold1_h = tou[1]['hours']
+    if len(tou) >= 3:
+        threshold2_h = tou[2]['hours']
+    if len(tou) >= 4:
+        threshold3_h = tou[3]['hours']
+    threshold_all_h = []
+    for tou_level in tou:
+        threshold_all_h += tou_level['hours']
+
+    # thresholds
+    if len(thresholds) >= 1:
+        threshold0 = thresholds[0]
+    if len(thresholds) >= 2:
+        threshold1 = thresholds[1]
+    if len(thresholds) >= 3:
+        threshold2 = thresholds[2]
+    if len(thresholds) >= 4:
+        threshold3 = thresholds[3]
+
+    soe0 = soe0_pu * soe_max
+    tol = 0.001  # tolerance
+
+    batt, soe = [], []
+    for netload, t in zip(df[netload_col], df[netload_col].index):
+        if t.hour in threshold_all_h:
+            threshold = 1e3
+            if len(tou) >= 1:
+                if t.hour in threshold0_h:
+                    threshold = min(threshold, threshold0)
+            if len(tou) >= 2:
+                if t.hour in threshold1_h:
+                    threshold = min(threshold, threshold1)
+            if len(tou) >= 3:
+                if t.hour in threshold2_h:
+                    threshold = min(threshold, threshold2)
+            if len (tou) >= 4:
+                if t.hour in threshold3_h:
+                    threshold = min(threshold, threshold3)
             batt.append(
                 batt_request(soe, netload - threshold, soe0, soe_max, interval_min)
             )
@@ -750,8 +879,11 @@ def grad_f4t(th_i, df_month, angle, batt_kwh, tou):
     return (c0_0 - c0_1, c1_0 - c1_1, c2_0 - c2_1, c3_0 - c3_1)
 
 
-def reload_outputs(filename):
-    output = pd.read_csv(filename, index_col=0)
+def process_results(filename=None,df=None):
+    if filename is not None:
+        output = pd.read_csv(filename, index_col=0)
+    if df is not None:
+        output = df.copy(deep=True)
     output = output[['angle', 'batt kwh', 'total cost']]
     angles = list(output.angle.unique())
     batt_sizes = output['batt kwh'].unique()
@@ -875,7 +1007,7 @@ def optimize_thresholds(
     df,
     tou,
     test=False,
-    tou1_dead=True,
+    tou1_is_tou0=True,
 ):
     '''Grid search and then gradient descent optimization of peak shaving thresholds. Option to
     not optimize the second (tou1) TOU window, but instead to hold it equal to the first (tou0).
@@ -889,7 +1021,7 @@ def optimize_thresholds(
             with datetime code). Defaults to 'Output/bifacil_peak_shaving_'.
         test (bool, optional): only do the first angle-battery-month combination to test code.
             Defaults to False.
-        tou1_dead (bool, optional): don't optimize the second (tou1) window, make value equal to
+        tou1_is_tou0 (bool, optional): don't optimize the second (tou1) window, make value equal to
             first window (tou0). Defaults to True.
     '''
     angles, batt_kwhs, output_filename_stub, test = (
@@ -898,6 +1030,15 @@ def optimize_thresholds(
         cfg.output_filename_stub,
         cfg.test
     )
+    
+    tic = pd.Timestamp.now()
+    
+    outdir = output_filename_stub + tic.strftime('%y%m%d_%H%M') + '/'
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+    else:
+        outdir = outdir[:-1]+tic.strftime('%S') + '/'
+        os.mkdir(outdir)
 
     year_months = [
         f'{y}-{m}'
@@ -915,8 +1056,6 @@ def optimize_thresholds(
 
     rough_search_max = cfg.grid_search_max
     rough_step = cfg.grid_search_step
-
-    tic = pd.Timestamp.now()
 
     output = pd.DataFrame([], columns=['angle', 'batt kwh', 'total cost'] + year_months)
     for batt_kwh in batt_kwhs:
@@ -961,17 +1100,29 @@ def optimize_thresholds(
                 #
 
                 k = 0
-                for th0 in range(0, rough_search_max, rough_step):
-                    if tou1_dead:
-                        th1_vals = [th0]
-                    else:
-                        th1_vals = range(0, rough_search_max, rough_step)
-                    for th1 in th1_vals:
+                
+                th0_range = range(0, rough_search_max, rough_step)
+                if tou.periods[0].dead:
+                    th0_range = [1e3]
+                th1_range = range(0, rough_search_max, rough_step)
+                if tou.periods[1].dead:
+                    th1_range = [1e3]
+                th2_range = range(0, rough_search_max, rough_step)
+                if tou.periods[2].dead:
+                    th2_range = [1e3]
+                th3_range = range(0, rough_search_max, rough_step)
+                if tou.periods[3].dead:
+                    th3_range = [1e3]
+                
+                for th0 in th0_range:
+                    if tou1_is_tou0:
+                        th1_range = [th0]
+                    for th1 in th1_range:
                         th1 = min(th0, th1)  # remove if T0 is not 'all hours'
-                        for th2 in range(0, rough_search_max, rough_step):
+                        for th2 in th2_range:
                             # remove if T0 is not 'all hours'
                             th2 = min(th0, th2)
-                            for th3 in range(0, rough_search_max, rough_step):
+                            for th3 in th3_range:
                                 # remove if T0 is not 'all hours'
                                 th3 = min(th0, th3)
                                 k += 1
@@ -1038,31 +1189,38 @@ def optimize_thresholds(
                 #
                 # Fine grid search
                 #
-
-                for th0 in range(
+                
+                th0_range = range(
                     max(0, int(best_th0 - rough_step)),
                     int(best_th0 + rough_step + 1),
-                    3,
-                ):
-                    if tou1_dead:
-                        th1_vals = [th0]
-                    else:
-                        th1_vals = range(
+                    3,)
+                if tou.periods[0].dead:
+                    th0_range = [1e3]
+                th1_range = range(
                             max(0, int(best_th1 - rough_step)),
                             int(best_th1 + rough_step + 1),
-                            3,
-                        )
-                    for th1 in th1_vals:
-                        th1 = min(th0, th1)
-                        for th2 in range(
+                            3,)
+                if tou.periods[1].dead:
+                    th1_range = [1e3]
+                th2_range = range(
                             max(0, int(best_th2 - rough_step)),
-                            int(best_th2 + rough_step),
-                        ):
-                            th2 = min(th0, th2)
-                            for th3 in range(
+                            int(best_th2 + rough_step),)
+                if tou.periods[2].dead:
+                    th2_range = [1e3]
+                th3_range = range(
                                 max(0, int(best_th3 - rough_step)),
-                                int(best_th3 + rough_step),
-                            ):
+                                int(best_th3 + rough_step),)
+                if tou.periods[3].dead:
+                    th3_range = [1e3]                
+
+                for th0 in th0_range:
+                    if tou1_is_tou0:
+                        th1_range = [th0]
+                    for th1 in th1_range:
+                        th1 = min(th0, th1)
+                        for th2 in th2_range:
+                            th2 = min(th0, th2)
+                            for th3 in th3_range:
                                 th3 = min(th0, th3)
                                 k += 1
                                 fail, dispatch = peak_shaving_sim_4tou(
@@ -1073,27 +1231,7 @@ def optimize_thresholds(
                                     tou,
                                     utility_chg_max=batt_kwh,
                                 )
-                                # if fail == False:
                                 cost = calc_cost(dispatch.utility, tou)
-                                # r = pd.concat(
-                                #     [
-                                #         r if not r.empty else None,
-                                #         pd.DataFrame(
-                                #             {
-                                #                 'i': k,
-                                #                 'fail': fail,
-                                #                 'th0': th0,
-                                #                 'th1': th1,
-                                #                 'th2': th2,
-                                #                 'th3': th3,
-                                #                 'c': cost,
-                                #                 'deltac': pd.NA,
-                                #                 'dc': pd.NA,
-                                #             },
-                                #             index=[k],
-                                #         ),
-                                #     ]
-                                # )
                                 r.loc[len(r)] = [
                                     k,
                                     fail,
@@ -1122,90 +1260,100 @@ def optimize_thresholds(
                 #
                 # Gradient descent
                 #
+                
+                if cfg.gradient_descent:
+                    
+                    LR = (0.1, 0.1, 0.1, 0.1)
 
-                LR = (0.1, 0.1, 0.1, 0.1)
-
-                c = []
-                th = [[best_th0, best_th1, best_th2, best_th3]]
-                cost, fail, dispatch = f4t(th[0], _df, angle, batt_kwh, tou)
-                c.append(cost)
-
-                # final_countdown = 20
-                cmin = cost
-                patience_counter = 0
-                for i in range(1, 500):
-                    dc = grad_f4t(th[i - 1], _df, angle, batt_kwh, tou)  # dy
-                    dth = [
-                        (dx + nz) * lr for dx, lr, nz in zip(dc, LR, np.random.rand(4))
-                    ]  # dx
-                    new_th = [
-                        max(0, x + dx) for x, dx in zip(th[i - 1], dth)
-                    ]  # x2 = x1 + dx
-                    new_th[1] = min(new_th[0], new_th[1])  # all th1 <= th0
-                    new_th[2] = min(new_th[0], new_th[2])  # all th2 <= th0
-                    new_th[3] = min(new_th[0], new_th[3])  # all th3 <= th0
-
-                    if tou1_dead:
-                        new_th[1] = new_th[0]
-
-                    th.append(new_th)
-                    cost, fail, dispatch = f4t(th[i], _df, angle, batt_kwh, tou)
+                    c = []
+                    th = [[best_th0, best_th1, best_th2, best_th3]]
+                    cost, fail, dispatch = f4t(th[0], _df, angle, batt_kwh, tou)
                     c.append(cost)
 
-                    # r = pd.concat(
-                    #     [
-                    #         r if not r.empty else None,
-                    #         pd.DataFrame(
-                    #             {
-                    #                 'i': i + k,
-                    #                 'fail': fail,
-                    #                 'th0': round(th[i][0], 3),
-                    #                 'th1': round(th[i][1], 3),
-                    #                 'th2': round(th[i][2], 3),
-                    #                 'th3': round(th[i][3], 3),
-                    #                 'c': c[i],
-                    #                 'deltac': c[i] - c[i - 1],
-                    #                 'dc': [round(x, 3) for x in dc],
-                    #             },
-                    #             index=[i + k],
-                    #         ),
-                    #     ]
-                    # )
-                    r.loc[len(r)] = [
-                        i + k,  # k from rough/fine searches
-                        fail,
-                        round(th[i][0], 3),
-                        round(th[i][1], 3),
-                        round(th[i][2], 3),
-                        round(th[i][3], 3),
-                        c[i],
-                        c[i] - c[i - 1],
-                        [round(x, 3) for x in dc],
-                    ]
+                    # final_countdown = 20
+                    cmin = cost
+                    patience_counter = 0
+                    for i in range(1, 500):
+                        dc = grad_f4t(th[i - 1], _df, angle, batt_kwh, tou)  # dy
+                        dth = [
+                            (dx + nz) * lr for dx, lr, nz in zip(dc, LR, np.random.rand(4))
+                        ]  # dx
+                        new_th = [
+                            max(0, x + dx) for x, dx in zip(th[i - 1], dth)
+                        ]  # x2 = x1 + dx
+                        new_th[1] = min(new_th[0], new_th[1])  # all th1 <= th0
+                        new_th[2] = min(new_th[0], new_th[2])  # all th2 <= th0
+                        new_th[3] = min(new_th[0], new_th[3])  # all th3 <= th0
 
-                    if cost < cmin:
-                        cmin = cost
-                        patience_counter = 0
-                    else:
-                        patience_counter += 1
+                        if tou.periods[0].dead:
+                            new_th[0] = 1e3
+                        if tou.periods[1].dead:
+                            new_th[1] = 1e3
+                        if tou1_is_tou0:
+                            new_th[1] = new_th[0]
+                        if tou.periods[2].dead:
+                            new_th[2] = 1e3
+                        if tou.periods[3].dead:
+                            new_th[3] = 1e3
 
-                    # stopping condition
-                    if patience_counter >= 50:
-                        break
+                        th.append(new_th)
+                        cost, fail, dispatch = f4t(th[i], _df, angle, batt_kwh, tou)
+                        c.append(cost)
 
-                    # stopping conditions
-                    # if r[['deltac']][k:].dropna().rolling(100).std().iloc[-1,0] > 10:
-                    #     break
+                        # r = pd.concat(
+                        #     [
+                        #         r if not r.empty else None,
+                        #         pd.DataFrame(
+                        #             {
+                        #                 'i': i + k,
+                        #                 'fail': fail,
+                        #                 'th0': round(th[i][0], 3),
+                        #                 'th1': round(th[i][1], 3),
+                        #                 'th2': round(th[i][2], 3),
+                        #                 'th3': round(th[i][3], 3),
+                        #                 'c': c[i],
+                        #                 'deltac': c[i] - c[i - 1],
+                        #                 'dc': [round(x, 3) for x in dc],
+                        #             },
+                        #             index=[i + k],
+                        #         ),
+                        #     ]
+                        # )
+                        r.loc[len(r)] = [
+                            i + k,  # k from rough/fine searches
+                            fail,
+                            round(th[i][0], 3),
+                            round(th[i][1], 3),
+                            round(th[i][2], 3),
+                            round(th[i][3], 3),
+                            c[i],
+                            c[i] - c[i - 1],
+                            [round(x, 3) for x in dc],
+                        ]
 
-                    # deltac = r[['deltac']].rolling(100).mean()[k:].dropna()
-                    # if len(deltac[deltac.deltac > -0.1]) >= 50:
-                    #     break
+                        if cost < cmin:
+                            cmin = cost
+                            patience_counter = 0
+                        else:
+                            patience_counter += 1
 
-                    # if abs(c[i]-c[i-1])<0.3:
-                    #     final_countdown -= 1
+                        # stopping condition
+                        if patience_counter >= 50:
+                            break
 
-                    # if final_countdown == 0:
-                    #     break
+                        # stopping conditions
+                        # if r[['deltac']][k:].dropna().rolling(100).std().iloc[-1,0] > 10:
+                        #     break
+
+                        # deltac = r[['deltac']].rolling(100).mean()[k:].dropna()
+                        # if len(deltac[deltac.deltac > -0.1]) >= 50:
+                        #     break
+
+                        # if abs(c[i]-c[i-1])<0.3:
+                        #     final_countdown -= 1
+
+                        # if final_countdown == 0:
+                        #     break
 
                 #
                 # Gradient descent small LR
@@ -1271,21 +1419,99 @@ def optimize_thresholds(
             ):
                 new_row.append((th0, th1, th2, th3))
             output.loc[len(output)] = new_row
-            output.to_csv(
-                output_filename_stub + tic.strftime('%y%m%d_%H%M') + '.csv'
-            )
+            output.to_csv(outdir+'output.csv')
 
     # r.loc[r.fail==False,'c'] = r[r.fail==False].c
     # r.loc[r.fail==True,'c (fail)'] = r[r.fail==True].c
     # r[['c','c (fail)']].plot()
     print('Elapsed', pd.Timestamp.now() - tic)
+    
+    pd.set_option('display.float_format', lambda x: f'{x:.1f}')
+    
+    results = process_results(df=output)
+    
+    results.index = results.index.rename('Battery [kWh]')
+    
+    results.to_csv(outdir+'results.csv')
+    
+    os.system(f'cp {cfg.filename} {outdir}{cfg.filename}')
+    
+    
+    return results
 
 
 # %%
 if __name__ == '__main__':
-    cfg =   parse_inputs('caltech_ev.json')
+    #
+    # Config
+    #
+    cfg =   parse_inputs('caltech_ev_h16-20.json')
+    
+    #
+    # Data
+    #
     load =  read_load_data(cfg)
     solar = read_and_scale_solar(cfg, load.index)
     net_load = calculate_net_load(load, solar)
     tou =   TimeOfUseTariff(cfg.tou)
-    optimize_thresholds(cfg, net_load, tou , test=True)
+    
+    #
+    # Single peak shave sim
+    #
+    """angle = 's20'
+    thresholds = (1e3,1e3,1e3,21)
+    batt_kwh = 50
+    year,month,day = 2018,9,6
+    fail,dispatch = peak_shaving_sim_4tou(  net_load[['load',f'solar_{angle}',f'netload_{angle}']]\
+                                    .loc[f'{year}-{month}'],
+                                    f'netload_{angle}',
+                                    batt_kwh,
+                                    thresholds,
+                                    tou.get(month),
+                                    utility_chg_max=batt_kwh,)
+    cost = calc_cost(dispatch.utility,tou)
+    plotly_stacked_4tou( dispatch.drop(columns=['soc']).loc[f'{year}-{month}'],
+                    solar=f'solar_{angle}',
+                    threshold0=thresholds[3], threshold0_h=tou.get(month)[3]['hours'], threshold0_name='Threshold 3',
+                    #threshold1=thresholds[1], threshold1_h=tou.get(month)[1]['hours'], threshold1_name='Threshold 1', 
+                    #threshold2=thresholds[2], threshold2_h=tou.get(month)[2]['hours'], threshold2_name='Threshold 2',
+                    #threshold3=thresholds[3], threshold3_h=tou.get(month)[3]['hours'], threshold3_name='Threshold 3',
+                    title=f'Cost {cost:.1f} ' + {True:'- Failure',False:''}[fail],
+                    units_power='kW',
+                    #size=(500,500),
+                    #ylim=(0,101),
+                    upsample_min=1,
+                    template='plotly_white',
+                    save_path='./peak shaving south.png')
+    
+    angle = 'w90'
+    thresholds = (1e3,1e3,1e3,7)
+    fail,dispatch = peak_shaving_sim_4tou(  net_load[['load',f'solar_{angle}',f'netload_{angle}']]\
+                                    .loc[f'{year}-{month}'],
+                                    f'netload_{angle}',
+                                    batt_kwh,
+                                    thresholds,
+                                    tou.get(month),
+                                    utility_chg_max=batt_kwh,)
+    cost = calc_cost(dispatch.utility,tou)
+    plotly_stacked_4tou( dispatch.drop(columns=['soc']).loc[f'{year}-{month}'],
+                    solar=f'solar_{angle}',
+                    threshold0=thresholds[3], threshold0_h=tou.get(month)[3]['hours'], threshold0_name='Threshold 3',
+                    #threshold1=thresholds[1], threshold1_h=tou.get(month)[1]['hours'], threshold1_name='Threshold 1', 
+                    #threshold2=thresholds[2], threshold2_h=tou.get(month)[2]['hours'], threshold2_name='Threshold 2',
+                    #threshold3=thresholds[3], threshold3_h=tou.get(month)[3]['hours'], threshold3_name='Threshold 3',
+                    title=f'Cost {cost:.1f} ' + {True:'- Failure',False:''}[fail],
+                    units_power='kW',
+                    #size=(500,500),
+                    #ylim=(0,101),
+                    upsample_min=1,
+                    template='plotly_white',
+                    save_path='./peak shaving south.png')
+    """
+    
+    #
+    # Optimize
+    #
+    results = optimize_thresholds(cfg, net_load, tou , test=True)
+    
+    print(results)
