@@ -1,7 +1,7 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = 21
+__version__ = 22
 import sys
 import os
 import json
@@ -63,6 +63,8 @@ def parse_inputs(config_file:str=None) -> dotdict:
         note += 'DEV_'
     
     assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'                
+    
+    note += cfg.note + '_'
 
     cfg.output_filename_stub = (
         f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_{note}'
@@ -1074,369 +1076,382 @@ def optimize_thresholds(
     rough_search_max = cfg.grid_search_max
     rough_step = cfg.grid_search_step
 
-    output = pd.DataFrame([], columns=['angle', 'batt kwh', 'total cost'] + year_months)
+    runs = []
+    output = pd.DataFrame([], columns=['angle', 'batt kwh', 'Pp','Ps','Pe2','Pe3', 'total cost'] + year_months)
     for batt_kwh in batt_kwhs:
         for angle in angles:
-            best_monthly = pd.DataFrame(
+            for p_p in cfg.power_prices:
+                for p_s in cfg.sell_prices:
+                    for p_e2 in [x+p_s for x in cfg.energy_prices_adder_2]:
+                        for p_e3 in [x+p_e2 for x in cfg.energy_prices_adder_3]:
+                            runs.append((angle, batt_kwh, p_p, p_s, p_e2, p_e3))
+    for run in runs:
+        angle, batt_kwh, p_p, p_s, p_e2, p_e3 = run
+        
+        tou.periods[3].power_price = p_p
+        tou.periods[3].energy_price_buy_sell = [p_e3, p_s]
+        tou.periods[2].energy_price_buy_sell = [p_e2, p_s]
+        
+        best_monthly = pd.DataFrame(
+            [],
+            columns=[
+                'year-month',
+                'threshold0',
+                'threshold1',
+                'threshold2',
+                'threshold3',
+                'cost',
+            ],
+        )
+        for year_month in year_months:
+            _df = df.loc[year_month][['load', f'solar_{angle}', f'netload_{angle}']]
+            t_newmonth = pd.Timestamp.now()
+            print(
+                f'\n{t_newmonth} Angle {angle} batt_kwh {batt_kwh } begin new month {year_month}'
+            )
+
+            r = pd.DataFrame(
                 [],
                 columns=[
-                    'year-month',
-                    'threshold0',
-                    'threshold1',
-                    'threshold2',
-                    'threshold3',
-                    'cost',
+                    'i',
+                    'fail',
+                    'th0',
+                    'th1',
+                    'th2',
+                    'th3',
+                    'c',
+                    'deltac',
+                    'dc',
                 ],
             )
-            for year_month in year_months:
-                _df = df.loc[year_month][['load', f'solar_{angle}', f'netload_{angle}']]
-                t_newmonth = pd.Timestamp.now()
-                print(
-                    f'\n{t_newmonth} Angle {angle} batt_kwh {batt_kwh } begin new month {year_month}'
-                )
+            # r = pd.DataFrame()
+            #r_cols = ['i', 'fail', 'th0', 'th1', 'th2', 'th3', 'c', 'deltac', 'dc']
 
-                r = pd.DataFrame(
-                    [],
-                    columns=[
-                        'i',
-                        'fail',
-                        'th0',
-                        'th1',
-                        'th2',
-                        'th3',
-                        'c',
-                        'deltac',
-                        'dc',
-                    ],
-                )
-                # r = pd.DataFrame()
-                #r_cols = ['i', 'fail', 'th0', 'th1', 'th2', 'th3', 'c', 'deltac', 'dc']
+            #
+            # Rough grid search
+            #
 
-                #
-                # Rough grid search
-                #
-
-                k = 0
-                
-                th0_range = range(0, rough_search_max, rough_step)
-                if tou.periods[0].dead:
-                    th0_range = [1e3]
-                th1_range = range(0, rough_search_max, rough_step)
-                if tou.periods[1].dead:
-                    th1_range = [1e3]
-                th2_range = range(0, rough_search_max, rough_step)
-                if tou.periods[2].dead:
-                    th2_range = [1e3]
-                th3_range = range(0, rough_search_max, rough_step)
-                if tou.periods[3].dead:
-                    th3_range = [1e3]
-                
-                for th0 in th0_range:
-                    if tou1_is_tou0:
-                        th1_range = [th0]
-                    for th1 in th1_range:
-                        th1 = min(th0, th1)  # remove if T0 is not 'all hours'
-                        for th2 in th2_range:
+            k = 0
+            
+            th0_range = range(0, rough_search_max, rough_step)
+            if tou.periods[0].dead:
+                th0_range = [1e3]
+            th1_range = range(0, rough_search_max, rough_step)
+            if tou.periods[1].dead:
+                th1_range = [1e3]
+            th2_range = range(0, rough_search_max, rough_step)
+            if tou.periods[2].dead:
+                th2_range = [1e3]
+            th3_range = range(0, rough_search_max, rough_step)
+            if tou.periods[3].dead:
+                th3_range = [1e3]
+            
+            for th0 in th0_range:
+                if tou1_is_tou0:
+                    th1_range = [th0]
+                for th1 in th1_range:
+                    th1 = min(th0, th1)  # remove if T0 is not 'all hours'
+                    for th2 in th2_range:
+                        # remove if T0 is not 'all hours'
+                        th2 = min(th0, th2)
+                        for th3 in th3_range:
                             # remove if T0 is not 'all hours'
-                            th2 = min(th0, th2)
-                            for th3 in th3_range:
-                                # remove if T0 is not 'all hours'
-                                th3 = min(th0, th3)
-                                k += 1
-                                fail, dispatch = peak_shaving_sim_4tou(
-                                    _df,
-                                    f'netload_{angle}',
-                                    batt_kwh,
-                                    [th0, th1, th2, th3],
-                                    tou,
-                                    utility_chg_max=batt_kwh,
-                                )
-                                # if fail == False:
-                                cost = calc_cost(dispatch.utility, tou)
-                                r.loc[len(r)] = [
-                                    k,
-                                    fail,
-                                    th0,
-                                    th1,
-                                    th2,
-                                    th3,
-                                    cost,
-                                    pd.NA,
-                                    pd.NA,
-                                ]
-                                # r = pd.concat(
-                                #     [
-                                #         r if not r.empty else None,
-                                #         pd.DataFrame(
-                                #             {
-                                #                 'i': k,
-                                #                 'fail': fail,
-                                #                 'th0': th0,
-                                #                 'th1': th1,
-                                #                 'th2': th2,
-                                #                 'th3': th3,
-                                #                 'c': cost,
-                                #                 'deltac': pd.NA,
-                                #                 'dc': pd.NA,
-                                #             },
-                                #             index=[k],
-                                #         ),
-                                #     ]
-                                # )
+                            th3 = min(th0, th3)
+                            k += 1
+                            fail, dispatch = peak_shaving_sim_4tou(
+                                _df,
+                                f'netload_{angle}',
+                                batt_kwh,
+                                [th0, th1, th2, th3],
+                                tou,
+                                utility_chg_max=batt_kwh,
+                            )
+                            # if fail == False:
+                            cost = calc_cost(dispatch.utility, tou)
+                            r.loc[len(r)] = [
+                                k,
+                                fail,
+                                th0,
+                                th1,
+                                th2,
+                                th3,
+                                cost,
+                                pd.NA,
+                                pd.NA,
+                            ]
+                            # r = pd.concat(
+                            #     [
+                            #         r if not r.empty else None,
+                            #         pd.DataFrame(
+                            #             {
+                            #                 'i': k,
+                            #                 'fail': fail,
+                            #                 'th0': th0,
+                            #                 'th1': th1,
+                            #                 'th2': th2,
+                            #                 'th3': th3,
+                            #                 'c': cost,
+                            #                 'deltac': pd.NA,
+                            #                 'dc': pd.NA,
+                            #             },
+                            #             index=[k],
+                            #         ),
+                            #     ]
+                            # )
 
-                if len(r[r.fail == False]) > 0:
-                    best_cost = r[r.fail == False]['c'].min()
-                    imin = r[r.fail == False]['c'].idxmin()
-                    best_th0 = r.loc[imin].th0
-                    best_th1 = r.loc[imin].th1
-                    best_th2 = r.loc[imin].th2
-                    best_th3 = r.loc[imin].th3
-                else:
-                    print(
-                        f'\n\n\n /// No viable solutions for angle {angle} batt_kwh {batt_kwh} year-month {year_month} rough_search_max {rough_search_max} /// \n\n\n'
-                    )
-                    sys.exit()
-
-                t_rgs = pd.Timestamp.now()
-                dt = (t_rgs - t_newmonth).seconds
-                print(
-                    f'{t_rgs} (+{dt}s) Rough grid search done for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f},{best_th3:.1f}), cost={best_cost:.1f} '
-                )
-
-                #
-                # Fine grid search
-                #
-                
-                th0_range = range(
-                    max(0, int(best_th0 - rough_step)),
-                    int(best_th0 + rough_step + 1),
-                    3,)
-                if tou.periods[0].dead:
-                    th0_range = [1e3]
-                th1_range = range(
-                            max(0, int(best_th1 - rough_step)),
-                            int(best_th1 + rough_step + 1),
-                            3,)
-                if tou.periods[1].dead:
-                    th1_range = [1e3]
-                th2_range = range(
-                            max(0, int(best_th2 - rough_step)),
-                            int(best_th2 + rough_step),)
-                if tou.periods[2].dead:
-                    th2_range = [1e3]
-                th3_range = range(
-                                max(0, int(best_th3 - rough_step)),
-                                int(best_th3 + rough_step),)
-                if tou.periods[3].dead:
-                    th3_range = [1e3]                
-
-                for th0 in th0_range:
-                    if tou1_is_tou0:
-                        th1_range = [th0]
-                    for th1 in th1_range:
-                        th1 = min(th0, th1)
-                        for th2 in th2_range:
-                            th2 = min(th0, th2)
-                            for th3 in th3_range:
-                                th3 = min(th0, th3)
-                                k += 1
-                                fail, dispatch = peak_shaving_sim_4tou(
-                                    _df,
-                                    f'netload_{angle}',
-                                    batt_kwh,
-                                    [th0, th1, th2, th3],
-                                    tou,
-                                    utility_chg_max=batt_kwh,
-                                )
-                                cost = calc_cost(dispatch.utility, tou)
-                                r.loc[len(r)] = [
-                                    k,
-                                    fail,
-                                    th0,
-                                    th1,
-                                    th2,
-                                    th3,
-                                    cost,
-                                    pd.NA,
-                                    pd.NA,
-                                ]
-
+            if len(r[r.fail == False]) > 0:
                 best_cost = r[r.fail == False]['c'].min()
                 imin = r[r.fail == False]['c'].idxmin()
                 best_th0 = r.loc[imin].th0
                 best_th1 = r.loc[imin].th1
                 best_th2 = r.loc[imin].th2
                 best_th3 = r.loc[imin].th3
-
-                t_fgs = pd.Timestamp.now()
-                dt = (t_fgs - t_rgs).seconds
+            else:
                 print(
-                    f'{t_fgs} (+{dt}s) Fine grid search done for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f},{best_th3:.1f}), cost={best_cost:.1f} '
+                    f'\n\n\n /// No viable solutions for angle {angle} batt_kwh {batt_kwh} year-month {year_month} rough_search_max {rough_search_max} /// \n\n\n'
                 )
+                sys.exit()
 
-                #
-                # Gradient descent
-                #
+            t_rgs = pd.Timestamp.now()
+            dt = (t_rgs - t_newmonth).seconds
+            print(
+                f'{t_rgs} (+{dt}s) Rough grid search done for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f},{best_th3:.1f}), cost={best_cost:.1f} '
+            )
+
+            #
+            # Fine grid search
+            #
+            
+            th0_range = range(
+                max(0, int(best_th0 - rough_step)),
+                int(best_th0 + rough_step + 1),
+                3,)
+            if tou.periods[0].dead:
+                th0_range = [1e3]
+            th1_range = range(
+                        max(0, int(best_th1 - rough_step)),
+                        int(best_th1 + rough_step + 1),
+                        3,)
+            if tou.periods[1].dead:
+                th1_range = [1e3]
+            th2_range = range(
+                        max(0, int(best_th2 - rough_step)),
+                        int(best_th2 + rough_step),)
+            if tou.periods[2].dead:
+                th2_range = [1e3]
+            th3_range = range(
+                            max(0, int(best_th3 - rough_step)),
+                            int(best_th3 + rough_step),)
+            if tou.periods[3].dead:
+                th3_range = [1e3]                
+
+            for th0 in th0_range:
+                if tou1_is_tou0:
+                    th1_range = [th0]
+                for th1 in th1_range:
+                    th1 = min(th0, th1)
+                    for th2 in th2_range:
+                        th2 = min(th0, th2)
+                        for th3 in th3_range:
+                            th3 = min(th0, th3)
+                            k += 1
+                            fail, dispatch = peak_shaving_sim_4tou(
+                                _df,
+                                f'netload_{angle}',
+                                batt_kwh,
+                                [th0, th1, th2, th3],
+                                tou,
+                                utility_chg_max=batt_kwh,
+                            )
+                            cost = calc_cost(dispatch.utility, tou)
+                            r.loc[len(r)] = [
+                                k,
+                                fail,
+                                th0,
+                                th1,
+                                th2,
+                                th3,
+                                cost,
+                                pd.NA,
+                                pd.NA,
+                            ]
+
+            best_cost = r[r.fail == False]['c'].min()
+            imin = r[r.fail == False]['c'].idxmin()
+            best_th0 = r.loc[imin].th0
+            best_th1 = r.loc[imin].th1
+            best_th2 = r.loc[imin].th2
+            best_th3 = r.loc[imin].th3
+
+            t_fgs = pd.Timestamp.now()
+            dt = (t_fgs - t_rgs).seconds
+            print(
+                f'{t_fgs} (+{dt}s) Fine grid search done for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f},{best_th3:.1f}), cost={best_cost:.1f} '
+            )
+
+            #
+            # Gradient descent
+            #
+            
+            if cfg.gradient_descent:
                 
-                if cfg.gradient_descent:
-                    
-                    LR = (0.1, 0.1, 0.1, 0.1)
+                LR = (0.1, 0.1, 0.1, 0.1)
 
-                    c = []
-                    th = [[best_th0, best_th1, best_th2, best_th3]]
-                    cost, fail, dispatch = f4t(th[0], _df, angle, batt_kwh, tou)
+                c = []
+                th = [[best_th0, best_th1, best_th2, best_th3]]
+                cost, fail, dispatch = f4t(th[0], _df, angle, batt_kwh, tou)
+                c.append(cost)
+
+                # final_countdown = 20
+                cmin = cost
+                patience_counter = 0
+                for i in range(1, 500):
+                    dc = grad_f4t(th[i - 1], _df, angle, batt_kwh, tou)  # dy
+                    dth = [
+                        (dx + nz) * lr for dx, lr, nz in zip(dc, LR, np.random.rand(4))
+                    ]  # dx
+                    new_th = [
+                        max(0, x + dx) for x, dx in zip(th[i - 1], dth)
+                    ]  # x2 = x1 + dx
+                    new_th[1] = min(new_th[0], new_th[1])  # all th1 <= th0
+                    new_th[2] = min(new_th[0], new_th[2])  # all th2 <= th0
+                    new_th[3] = min(new_th[0], new_th[3])  # all th3 <= th0
+
+                    if tou.periods[0].dead:
+                        new_th[0] = 1e3
+                    if tou.periods[1].dead:
+                        new_th[1] = 1e3
+                    if tou1_is_tou0:
+                        new_th[1] = new_th[0]
+                    if tou.periods[2].dead:
+                        new_th[2] = 1e3
+                    if tou.periods[3].dead:
+                        new_th[3] = 1e3
+
+                    th.append(new_th)
+                    cost, fail, dispatch = f4t(th[i], _df, angle, batt_kwh, tou)
                     c.append(cost)
 
-                    # final_countdown = 20
-                    cmin = cost
-                    patience_counter = 0
-                    for i in range(1, 500):
-                        dc = grad_f4t(th[i - 1], _df, angle, batt_kwh, tou)  # dy
-                        dth = [
-                            (dx + nz) * lr for dx, lr, nz in zip(dc, LR, np.random.rand(4))
-                        ]  # dx
-                        new_th = [
-                            max(0, x + dx) for x, dx in zip(th[i - 1], dth)
-                        ]  # x2 = x1 + dx
-                        new_th[1] = min(new_th[0], new_th[1])  # all th1 <= th0
-                        new_th[2] = min(new_th[0], new_th[2])  # all th2 <= th0
-                        new_th[3] = min(new_th[0], new_th[3])  # all th3 <= th0
+                    # r = pd.concat(
+                    #     [
+                    #         r if not r.empty else None,
+                    #         pd.DataFrame(
+                    #             {
+                    #                 'i': i + k,
+                    #                 'fail': fail,
+                    #                 'th0': round(th[i][0], 3),
+                    #                 'th1': round(th[i][1], 3),
+                    #                 'th2': round(th[i][2], 3),
+                    #                 'th3': round(th[i][3], 3),
+                    #                 'c': c[i],
+                    #                 'deltac': c[i] - c[i - 1],
+                    #                 'dc': [round(x, 3) for x in dc],
+                    #             },
+                    #             index=[i + k],
+                    #         ),
+                    #     ]
+                    # )
+                    r.loc[len(r)] = [
+                        i + k,  # k from rough/fine searches
+                        fail,
+                        round(th[i][0], 3),
+                        round(th[i][1], 3),
+                        round(th[i][2], 3),
+                        round(th[i][3], 3),
+                        c[i],
+                        c[i] - c[i - 1],
+                        [round(x, 3) for x in dc],
+                    ]
 
-                        if tou.periods[0].dead:
-                            new_th[0] = 1e3
-                        if tou.periods[1].dead:
-                            new_th[1] = 1e3
-                        if tou1_is_tou0:
-                            new_th[1] = new_th[0]
-                        if tou.periods[2].dead:
-                            new_th[2] = 1e3
-                        if tou.periods[3].dead:
-                            new_th[3] = 1e3
+                    if cost < cmin:
+                        cmin = cost
+                        patience_counter = 0
+                    else:
+                        patience_counter += 1
 
-                        th.append(new_th)
-                        cost, fail, dispatch = f4t(th[i], _df, angle, batt_kwh, tou)
-                        c.append(cost)
+                    # stopping condition
+                    if patience_counter >= 50:
+                        break
 
-                        # r = pd.concat(
-                        #     [
-                        #         r if not r.empty else None,
-                        #         pd.DataFrame(
-                        #             {
-                        #                 'i': i + k,
-                        #                 'fail': fail,
-                        #                 'th0': round(th[i][0], 3),
-                        #                 'th1': round(th[i][1], 3),
-                        #                 'th2': round(th[i][2], 3),
-                        #                 'th3': round(th[i][3], 3),
-                        #                 'c': c[i],
-                        #                 'deltac': c[i] - c[i - 1],
-                        #                 'dc': [round(x, 3) for x in dc],
-                        #             },
-                        #             index=[i + k],
-                        #         ),
-                        #     ]
-                        # )
-                        r.loc[len(r)] = [
-                            i + k,  # k from rough/fine searches
-                            fail,
-                            round(th[i][0], 3),
-                            round(th[i][1], 3),
-                            round(th[i][2], 3),
-                            round(th[i][3], 3),
-                            c[i],
-                            c[i] - c[i - 1],
-                            [round(x, 3) for x in dc],
-                        ]
+                    # stopping conditions
+                    # if r[['deltac']][k:].dropna().rolling(100).std().iloc[-1,0] > 10:
+                    #     break
 
-                        if cost < cmin:
-                            cmin = cost
-                            patience_counter = 0
-                        else:
-                            patience_counter += 1
+                    # deltac = r[['deltac']].rolling(100).mean()[k:].dropna()
+                    # if len(deltac[deltac.deltac > -0.1]) >= 50:
+                    #     break
 
-                        # stopping condition
-                        if patience_counter >= 50:
-                            break
+                    # if abs(c[i]-c[i-1])<0.3:
+                    #     final_countdown -= 1
 
-                        # stopping conditions
-                        # if r[['deltac']][k:].dropna().rolling(100).std().iloc[-1,0] > 10:
-                        #     break
+                    # if final_countdown == 0:
+                    #     break
 
-                        # deltac = r[['deltac']].rolling(100).mean()[k:].dropna()
-                        # if len(deltac[deltac.deltac > -0.1]) >= 50:
-                        #     break
+            #
+            # Gradient descent small LR
+            #
 
-                        # if abs(c[i]-c[i-1])<0.3:
-                        #     final_countdown -= 1
+            # LR = (0.01,0.01,0.01)
 
-                        # if final_countdown == 0:
-                        #     break
+            # print(f'{pd.Timestamp.now()} Gradient descent decrease LR to {LR} for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f}), cost={best_cost:.1f} ')
 
-                #
-                # Gradient descent small LR
-                #
+            # j = i
+            # for i in range(j,j+500):
+            #     dc = grad_f(th[i-1])
+            #     dth = [(dx+nz)*lr for dx,lr,nz in zip(dc,LR,rnd.rand(3))]
+            #     new_th = [max(0,x+dx) for x,dx in zip(th[i-1],dth)]
+            #     th.append(new_th)
+            #     cost,fail,dispatch = f(th[i])
+            #     c.append(cost)
 
-                # LR = (0.01,0.01,0.01)
+            #     r.loc[len(r)] = [i+k,
+            #                      fail,
+            #                      round(th[i][0],3),
+            #                      round(th[i][1],3),
+            #                      round(th[i][2],3),
+            #                      c[i],
+            #                      c[i]-c[i-1],
+            #                      [round(x,3) for x in dc]]
 
-                # print(f'{pd.Timestamp.now()} Gradient descent decrease LR to {LR} for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f}), cost={best_cost:.1f} ')
+            best_cost = r[r.fail == False]['c'].min()
+            imin = r[r.fail == False]['c'].idxmin()
+            best_th0 = r.loc[imin].th0
+            best_th1 = r.loc[imin].th1
+            best_th2 = r.loc[imin].th2
+            best_th3 = r.loc[imin].th3
+            best_monthly.loc[len(best_monthly)] = [
+                year_month,
+                best_th0,
+                best_th1,
+                best_th2,
+                best_th3,
+                best_cost,
+            ]
 
-                # j = i
-                # for i in range(j,j+500):
-                #     dc = grad_f(th[i-1])
-                #     dth = [(dx+nz)*lr for dx,lr,nz in zip(dc,LR,rnd.rand(3))]
-                #     new_th = [max(0,x+dx) for x,dx in zip(th[i-1],dth)]
-                #     th.append(new_th)
-                #     cost,fail,dispatch = f(th[i])
-                #     c.append(cost)
+            t_gd = pd.Timestamp.now()
+            dt = (t_gd - t_fgs).seconds
+            print(
+                f'{t_gd} (+{dt}s) Gradient descent done for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f},{best_th3:.1f}), cost={best_cost:.1f} '
+            )
 
-                #     r.loc[len(r)] = [i+k,
-                #                      fail,
-                #                      round(th[i][0],3),
-                #                      round(th[i][1],3),
-                #                      round(th[i][2],3),
-                #                      c[i],
-                #                      c[i]-c[i-1],
-                #                      [round(x,3) for x in dc]]
+        # best_monthly.index = best_monthly.month
+        # best_monthly = best_monthly.drop(columns=['month'])
 
-                best_cost = r[r.fail == False]['c'].min()
-                imin = r[r.fail == False]['c'].idxmin()
-                best_th0 = r.loc[imin].th0
-                best_th1 = r.loc[imin].th1
-                best_th2 = r.loc[imin].th2
-                best_th3 = r.loc[imin].th3
-                best_monthly.loc[len(best_monthly)] = [
-                    year_month,
-                    best_th0,
-                    best_th1,
-                    best_th2,
-                    best_th3,
-                    best_cost,
-                ]
+        # print('/// Best monthly')
+        # print(f'Batt kwh {batt_kwh}')
+        # print(f'Total cost {best_monthly.cost.sum():.1f}')
+        # print(best_monthly.T,'\n\n')
 
-                t_gd = pd.Timestamp.now()
-                dt = (t_gd - t_fgs).seconds
-                print(
-                    f'{t_gd} (+{dt}s) Gradient descent done for {year_month} thresholds=({best_th0:.1f},{best_th1:.1f},{best_th2:.1f},{best_th3:.1f}), cost={best_cost:.1f} '
-                )
-
-            # best_monthly.index = best_monthly.month
-            # best_monthly = best_monthly.drop(columns=['month'])
-
-            # print('/// Best monthly')
-            # print(f'Batt kwh {batt_kwh}')
-            # print(f'Total cost {best_monthly.cost.sum():.1f}')
-            # print(best_monthly.T,'\n\n')
-
-            new_row = [angle, batt_kwh, best_monthly.cost.sum()]
-            for th0, th1, th2, th3 in zip(
-                best_monthly.threshold0,
-                best_monthly.threshold1,
-                best_monthly.threshold2,
-                best_monthly.threshold3,
-            ):
-                new_row.append((th0, th1, th2, th3))
-            output.loc[len(output)] = new_row
-            output.to_csv(outdir+'output.csv')
+        new_row = [angle, batt_kwh, p_p, p_s, p_e2, p_e3, best_monthly.cost.sum()]
+        for th0, th1, th2, th3 in zip(
+            best_monthly.threshold0,
+            best_monthly.threshold1,
+            best_monthly.threshold2,
+            best_monthly.threshold3,
+        ):
+            new_row.append((th0, th1, th2, th3))
+        output.loc[len(output)] = new_row
+        output.to_csv(outdir+'output.csv')
 
     # r.loc[r.fail==False,'c'] = r[r.fail==False].c
     # r.loc[r.fail==True,'c (fail)'] = r[r.fail==True].c
