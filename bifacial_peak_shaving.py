@@ -4,6 +4,7 @@
 __version__ = 24
 import sys
 import os
+import shutil
 import json
 import pandas as pd
 import numpy as np
@@ -71,7 +72,10 @@ def parse_inputs(config_file:str=None) -> dotdict:
                                                     comment='#',
                                                     index_col=0,
                                                     parse_dates=True)
-    note += cfg.note + '_'
+    if cfg.note is not None:
+        note += cfg.note + '_'
+    else:
+        note = ''
 
     cfg.output_filename_stub = (
         f'Output/{config_file.split(".")[0]}_v{__version__}_s{cfg.solar_scaler:.1f}_{note}'
@@ -912,7 +916,7 @@ def grad_f4t(th_i, df_month, angle, batt_kwh, tou):
     return (c0_0 - c0_1, c1_0 - c1_1, c2_0 - c2_1, c3_0 - c3_1)
 
 
-def process_results(filename=None,df=None):
+def process_output(filename=None,df=None):
     if filename is not None:
         output = pd.read_csv(filename, index_col=0)
     if df is not None:
@@ -1082,8 +1086,8 @@ def optimize_thresholds(
         for m in df.loc[str(y)].index.month.unique()
     ]
 
-    rough_search_max = cfg.grid_search_max
-    rough_step = cfg.grid_search_step
+    search_max = cfg.grid_search_max
+    step = cfg.grid_search_step
 
     runs = []
     for batt_kwh in batt_kwhs:
@@ -1155,16 +1159,16 @@ def optimize_thresholds(
 
             k = 0
             
-            th0_range = range(0, rough_search_max, rough_step)
+            th0_range = range(0, search_max, step)
             if tou.periods[0].dead:
                 th0_range = [1e3]
-            th1_range = range(0, rough_search_max, rough_step)
+            th1_range = range(0, search_max, step)
             if tou.periods[1].dead:
                 th1_range = [1e3]
-            th2_range = range(0, rough_search_max, rough_step)
+            th2_range = range(0, search_max, step)
             if tou.periods[2].dead:
                 th2_range = [1e3]
-            th3_range = range(0, rough_search_max, rough_step)
+            th3_range = range(0, search_max, step)
             if tou.periods[3].dead:
                 th3_range = [1e3]
             
@@ -1232,7 +1236,7 @@ def optimize_thresholds(
                 best_th3 = r.loc[imin].th3
             else:
                 print(
-                    f'\n\n\n /// No viable solutions for angle {angle} batt_kwh {batt_kwh} year-month {year_month} rough_search_max {rough_search_max} /// \n\n\n'
+                    f'\n\n\n /// No viable solutions for angle {angle} batt_kwh {batt_kwh} year-month {year_month} search_max {search_max} /// \n\n\n'
                 )
                 sys.exit()
 
@@ -1247,25 +1251,25 @@ def optimize_thresholds(
             #
             
             th0_range = range(
-                max(0, int(best_th0 - rough_step)),
-                int(best_th0 + rough_step + 1),
-                3,)
+                max(0, int(best_th0 - step)),
+                int(best_th0 + step),
+                cfg.grid_search_fine_step,)
             if tou.periods[0].dead:
                 th0_range = [1e3]
             th1_range = range(
-                        max(0, int(best_th1 - rough_step)),
-                        int(best_th1 + rough_step + 1),
-                        3,)
+                        max(0, int(best_th1 - step)),
+                        int(best_th1 + step),
+                        cfg.grid_search_fine_step,)
             if tou.periods[1].dead:
                 th1_range = [1e3]
             th2_range = range(
-                        max(0, int(best_th2 - rough_step)),
-                        int(best_th2 + rough_step),)
+                        max(0, int(best_th2 - step)),
+                        int(best_th2 + step),)
             if tou.periods[2].dead:
                 th2_range = [1e3]
             th3_range = range(
-                            max(0, int(best_th3 - rough_step)),
-                            int(best_th3 + rough_step),)
+                            max(0, int(best_th3 - step)),
+                            int(best_th3 + step),)
             if tou.periods[3].dead:
                 th3_range = [1e3]                
 
@@ -1486,11 +1490,11 @@ def optimize_thresholds(
     # r[['c','c (fail)']].plot()
     print('Elapsed', pd.Timestamp.now() - tic)
     
-    os.system(f'cp {cfg.filename} {outdir}{cfg.filename}')
+    shutil.copyfile(cfg.filename, outdir+cfg.filename)
     
     if process_results and not cfg.grid_search_prices:
         pd.set_option('display.float_format', lambda x: f'{x:.1f}')
-        results = process_results(df=output)
+        results = process_output(df=output)
         results.index = results.index.rename('Battery [kWh]')
         results.to_csv(outdir+'results.csv')
         return results
