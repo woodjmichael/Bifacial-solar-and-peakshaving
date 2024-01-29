@@ -1,13 +1,14 @@
 # %%
 ''' Bifacial Peak Shaving
 '''
-__version__ = 20
+__version__ = 21
 import sys
 import os
 import json
 import pandas as pd
 import numpy as np
 import warnings
+import yaml
 from data_processing import calc_monthly_peaks, order_of_magnitude, plotly_stacked_4tou
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -27,7 +28,12 @@ class dotdict(dict):
 def parse_inputs(config_file:str=None) -> dotdict:
     
     if config_file is not None:
-        cfg = dotdict(json.load(open(config_file, 'r')))
+        #cfg = dotdict(json.load(open(config_file, 'r')))
+                
+        with open(config_file, 'r') as stream:
+            d=yaml.safe_load(stream)
+        cfg = dotdict(d)
+
     
     note = ''
 
@@ -65,6 +71,12 @@ def parse_inputs(config_file:str=None) -> dotdict:
     if cfg.gpu:
         cfg.data_dir = cfg.data_dir_gpu
         cfg.output_filename_stub += 'GPU_'
+        
+    tou = {}
+    for key in cfg.keys():
+        if key[:3] == 'tou':
+            tou[key] = cfg[key]
+    cfg.tou = tou
 
     return cfg
 
@@ -95,6 +107,11 @@ class TimeOfUseTariff:
             self.periods = [dotdict(x) for x in tou_raw]
         if 'from_to_h' in self.periods[0].keys():
             self.create_hour_list()
+        for period in self.periods:
+            if period.power_price == 0:
+                period['dead'] = True
+            else:
+                period['dead'] = False
         self.levels = len([x for x in self.periods if 1 in x['months']])
         self.check()
         print(f'Periods: {len(self.periods)} (overlap {self.overlap})')
@@ -1445,14 +1462,14 @@ if __name__ == '__main__':
     #
     # Config
     #
-    cfg =   parse_inputs('caltech_ev_h16-20.json')
+    cfg =   parse_inputs('caltech_ev_h16-20.yaml')
     
     #
     # Data
     #
     load =  read_load_data(cfg)
     solar = read_and_scale_solar(cfg, load.index)
-    net_load = calculate_net_load(load, solar)
+    df = calculate_net_load(load, solar)
     tou =   TimeOfUseTariff(cfg.tou)
     
     #
@@ -1462,7 +1479,7 @@ if __name__ == '__main__':
     thresholds = (1e3,1e3,1e3,21)
     batt_kwh = 50
     year,month,day = 2018,9,6
-    fail,dispatch = peak_shaving_sim_4tou(  net_load[['load',f'solar_{angle}',f'netload_{angle}']]\
+    fail,dispatch = peak_shaving_sim_4tou(  df[['load',f'solar_{angle}',f'netload_{angle}']]\
                                     .loc[f'{year}-{month}'],
                                     f'netload_{angle}',
                                     batt_kwh,
@@ -1486,7 +1503,7 @@ if __name__ == '__main__':
     
     angle = 'w90'
     thresholds = (1e3,1e3,1e3,7)
-    fail,dispatch = peak_shaving_sim_4tou(  net_load[['load',f'solar_{angle}',f'netload_{angle}']]\
+    fail,dispatch = peak_shaving_sim_4tou(  df[['load',f'solar_{angle}',f'netload_{angle}']]\
                                     .loc[f'{year}-{month}'],
                                     f'netload_{angle}',
                                     batt_kwh,
@@ -1512,6 +1529,6 @@ if __name__ == '__main__':
     #
     # Optimize
     #
-    results = optimize_thresholds(cfg, net_load, tou , test=True)
+    results = optimize_thresholds(cfg, df, tou , test=True)
     
     print(results)
