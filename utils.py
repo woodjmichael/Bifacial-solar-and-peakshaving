@@ -2,7 +2,7 @@
 Generally useufl utility functions
 """
 
-__version__ = 26
+__version__ = 27
 
 import os
 import sys
