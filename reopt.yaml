@@ -1,0 +1,26 @@
+# forward slashes '/' in paths, end with a slash
+# space after the first colon
+# double quotes around further colons
+# no trailing comma
+version: 26
+note: 
+dev: false
+test: false
+
+data_dir: data/
+load_file: load/acn_caltech_profile_1y.csv
+load_col: Load (kW)
+load_resamp: 1h
+
+solar_file: solar/pasadena_128kwp_2019_15min.csv
+solar_resamp: 1h
+solar_scaler: 128
+arrays: [25] # 0 is assumed (baseline)
+solar_kws: [100,125,150,200]
+
+batt_kws: [0,25,50,75,100]
+batt_hs: [1,2]
+
+tariff_file: tariff/PGE_E20.json
+energy_price_sell_constant: 0.05
+

@@ -2,17 +2,100 @@
 Generally useufl utility functions
 """
 
+__version__ = 26
+
+import os
+import sys
+import shutil
 import math
+import yaml
+import json
 import pandas as pd
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from plotly.subplots import make_subplots
 
-class DotDict(dict):
+class dotdict(dict):
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+    
+def setup(config_file:str=None) -> dotdict:
+    
+    if config_file is not None:
+        #cfg = dotdict(json.load(open(config_file, 'r')))
+                
+        with open(config_file, 'r') as stream:
+            d=yaml.safe_load(stream)
+        cfg = dotdict(d)
+
+    
+    note = ''
+
+    if len(sys.argv) > 1:
+        for i, arg in enumerate(sys.argv[1:]):
+            if arg[:3] == '--f':
+                break
+            if arg[-4:] == 'json':
+                config_file = arg
+                cfg = dotdict(json.load(open(config_file, 'r')))
+            if arg == '-a':
+                cfg.solar_angles = [sys.argv[i + 2]]
+                note += f'a{sys.argv[i + 2]}_'
+            if arg == '-s':
+                cfg.solar_scaler = float(sys.argv[i + 2])
+                note += f's{cfg.solar_scaler:.1f}_'
+            if arg == 'TEST':
+                cfg.test = True
+                note += 'TEST_'             
+            if arg == '-n':
+                note += sys.argv[i + 2] + '_'     
+                cfg = dotdict(json.load(open(config_file, 'r')))
+                
+    cfg['filename'] = config_file           
+                
+    if cfg.dev:
+        note += 'DEV_'
+    if 'energy_price_sell_vector' in cfg.keys():
+        cfg.energy_price_sell_vector = pd.read_csv( cfg.energy_price_sell_vector,
+                                                    comment='#',
+                                                    index_col=0,
+                                                    parse_dates=True)
+    if cfg.note is not None:
+        note += cfg.note + '_'
+    else:
+        note = ''
+        
+    cfg.solar_file = cfg.data_dir + cfg.solar_file
+    cfg.load_file = cfg.data_dir + cfg.load_file
+    cfg.tariff_file = cfg.data_dir + cfg.tariff_file
+
+    # outputs dir
+    cfg.output_filename_stub = (f'outputs/{config_file.split(".")[0]}_v{__version__}_{note}')
+
+    tou = {}
+    for key in cfg.keys():
+        if key[:3] == 'tou':
+            tou[key] = cfg[key]
+    cfg.tou = tou
+    
+    # check version number
+    assert cfg.version == __version__, f'Version mismatch: {cfg.version} != {__version__}'                    
+
+    # create output directory
+    tic = pd.Timestamp.now()
+    cfg.outdir = cfg.output_filename_stub + tic.strftime('%y.%m.%d-%H.%M') + '/'
+    if not os.path.exists(cfg.outdir):
+        os.mkdir(cfg.outdir)
+    else:
+        cfg.outdir = cfg.outdir[:-1]+tic.strftime('.%S') + '/'
+        os.mkdir(cfg.outdir)
+        
+    # copy over yaml config
+    shutil.copyfile(cfg.filename, cfg.outdir+cfg.filename)
+
+    return cfg
     
 def import_series(name,downsample=False):
     df = pd.read_csv(name,header=None)
@@ -36,6 +119,15 @@ def import_df(name,col,t0=None,scale=None,resamp=None):
         df = df.resample(resamp).mean()
     df[df<0] = 0
     return list(df.values.flatten())
+
+def import_json(name):
+    with open(name, 'r') as fp:
+        jsondict = json.load(fp)
+    return jsondict
+
+def export_json(jsondict,outdir):
+    with open(outdir+'post.json', 'w') as fp:
+        json.dump(jsondict, fp)
 
 def parse_dispatch_series(_api_response):
     load            = _api_response["outputs"]["ElectricLoad"]["load_series_kw"]
@@ -102,7 +194,7 @@ def plotly_stacked(df,
                 units_energy='kWh',
                 round_digits=1,
                 upsample_min=None,
-                plot_theme='plotly'):
+                theme='plotly'):
     """ Make plotly graph with some data stacked in area-fill style
     """
     
@@ -261,7 +353,7 @@ def plotly_stacked(df,
                     plot_bgcolor='rgba(0,0,0,0)',
                     legend=dict(orientation='h'),
                     legend_traceorder='reversed',
-                    template=plot_theme,
+                    template=theme,
                     title=title,)
     if size is not None:
         fig.update_layout(width=size[0],height=size[1])
