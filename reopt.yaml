@@ -11,6 +11,7 @@ dev: false
 test: false
 
 data_dir: data/
+
 load_file: load/acn_caltech_profile_1y.csv
 load_col: Load (kW)
 load_resamp: 1h
@@ -27,32 +28,17 @@ batt_hs: [1]
 tariff_file: tariff/PGE_E20.json
 energy_price_sell_constant: 0.05
 
-Site: {longitude: 45.50589, latitude: 9.16099}
-
-PV: {
-            array_type: 0,
-            can_net_meter: false,
-            #installed_cost_per_kw: 0,
-        }
-ElectricLoad: {
-            
-        }
-ElectricStorage: {
-            # installed_cost_per_kw :0,
-            # installed_cost_per_kwh :0,
-            soc_min_fraction: 0.0,
-            soc_max_fraction: 1.0,
-            soc_init_fraction: 0.0,
-            can_grid_charge: true,
-        }
-
-ElectricTariff: {
-            #'urdb_label': '5c817fcf7bece2299eceb39b', # General Service Time-of-use Electric Vehicle Charging - Demand Metered:TOU-EV-4 (50kV - 220 kV) - Closed Rate            
-        }
-ElectricUtility: {
-            net_metering_limit_kw: 0,
-        }
-Financial: {
-            analysis_years: 20,
-        }
+# the following go directly in the the API post
+post: {
+  Settings: {time_steps_per_hour: 1},
+  Site: {longitude: 45.50589, latitude: 9.16099},
+  PV: {array_type: 0, can_net_meter: false}, #installed_cost_per_kw: 0,}
+  ElectricLoad: { },
+  ElectricStorage: {soc_min_fraction: 0.0, # installed_cost_per_kw :0,installed_cost_per_kwh :0,
+                  soc_max_fraction: 1.0,
+                  soc_init_fraction: 0.0,
+                  can_grid_charge: true },
+  ElectricTariff: { }, #'urdb_label': '5c817fcf7bece2299eceb39b', # General Service Time-of-use Electric Vehicle Charging - Demand Metered:TOU-EV-4 (50kV - 220 kV) - Closed Rate            
+  ElectricUtility: { net_metering_limit_kw: 0},
+  Financial: {analysis_years: 1} }
 
