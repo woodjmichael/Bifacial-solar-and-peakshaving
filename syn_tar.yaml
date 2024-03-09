@@ -1,20 +1,3 @@
-ElectricLoad: {}
-ElectricStorage:
-  can_grid_charge: true
-  soc_init_fraction: 0.0
-  soc_max_fraction: 1.0
-  soc_min_fraction: 0.0
-ElectricTariff: {}
-ElectricUtility:
-  net_metering_limit_kw: 0
-Financial:
-  analysis_years: 20
-PV:
-  array_type: 0
-  can_net_meter: false
-Site:
-  latitude: 9.16099
-  longitude: 45.50589
 arrays:
 - 25
 - 50
@@ -34,6 +17,26 @@ load_col: Load (kW)
 load_file: load/acn_caltech_profile_1y.csv
 load_resamp: 1h
 note: d8_h14_pe0.1-0.2_pd20
+post:
+  ElectricLoad: {}
+  ElectricStorage:
+    can_grid_charge: true
+    soc_init_fraction: 0.0
+    soc_max_fraction: 1.0
+    soc_min_fraction: 0.0
+  ElectricTariff: {}
+  ElectricUtility:
+    net_metering_limit_kw: 0
+  Financial:
+    analysis_years: 20
+  PV:
+    array_type: 0
+    can_net_meter: false
+  Settings:
+    time_steps_per_hour: 1
+  Site:
+    latitude: 9.16099
+    longitude: 45.50589
 solar_file: solar/pasadena_128kwp_2019_15min.csv
 solar_kws:
 - 100
