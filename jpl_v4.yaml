@@ -1,0 +1,44 @@
+# forward slashes '/' in paths, end with a slash
+# space after the first colon
+# double quotes around further colons
+# no trailing comma
+
+# if doing design optimization choose analysis_years>1
+
+version: 27
+note: 
+dev: false
+test: false
+
+data_dir: data/
+
+load_file: load/2019_JPL_v4.csv
+load_col: Power_kW
+load_resamp: 1h
+
+solar_file: solar/pasadena_128kwp_2019_15min.csv
+solar_resamp: 1h
+solar_scaler: 128
+arrays: [25,50,75] # 0 is assumed (baseline)
+solar_kws: [100,125,150,200]
+
+batt_kws: [0,25,50,75,100]
+batt_hs: [1]
+
+tariff_file: tariff/PGE_E20.json
+energy_price_sell_constant: 0.05
+
+# the following go directly in the the API post
+post: {
+  Settings: {time_steps_per_hour: 1},
+  Site: {longitude: 45.50589, latitude: 9.16099},
+  PV: {array_type: 0, can_net_meter: false}, #installed_cost_per_kw: 0,}
+  ElectricLoad: { },
+  ElectricStorage: {soc_min_fraction: 0.0, # installed_cost_per_kw :0,installed_cost_per_kwh :0,
+                  soc_max_fraction: 1.0,
+                  soc_init_fraction: 0.0,
+                  can_grid_charge: true },
+  ElectricTariff: { }, #'urdb_label': '5c817fcf7bece2299eceb39b', # General Service Time-of-use Electric Vehicle Charging - Demand Metered:TOU-EV-4 (50kV - 220 kV) - Closed Rate            
+  ElectricUtility: { net_metering_limit_kw: 0},
+  Financial: {analysis_years: 1} }
+
