@@ -2,7 +2,7 @@
 Generally useufl utility functions
 """
 
-__version__ = 28
+__version__ = 30
 
 import os
 import sys
@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from plotly.subplots import make_subplots
 from src.post_and_poll import get_api_results
+
+pd.options.display.float_format = '{:.2f}'.format
 
 class dotdict(dict):
     __getattr__ = dict.__getitem__
@@ -46,8 +48,8 @@ def setup(config_file:str=None) -> dotdict:
                 cfg.solar_angles = [sys.argv[i + 2]]
                 note += f'a{sys.argv[i + 2]}_'
             if arg == '-s':
-                cfg.solar_scaler = float(sys.argv[i + 2])
-                note += f's{cfg.solar_scaler:.1f}_'
+                cfg.solar_capacity_kw = float(sys.argv[i + 2])
+                note += f's{cfg.solar_capacity_kw:.1f}_'
             if arg == 'TEST':
                 cfg.test = True
                 note += 'TEST_'             
@@ -68,10 +70,20 @@ def setup(config_file:str=None) -> dotdict:
         note += cfg.note + '_'
     else:
         note = ''
-        
-    cfg.solar_file = cfg.data_dir + cfg.solar_file
-    cfg.load_file = cfg.data_dir + cfg.load_file
+    
+    cfg.load_file = cfg.data_dir + cfg.load_file    
     cfg.tariff_file = cfg.data_dir + cfg.tariff_file
+    if 'solar_file' in cfg.keys():
+        cfg.solar_file = cfg.data_dir + cfg.solar_file
+    if 'load_forecast_file' in cfg.keys():
+        cfg.load_forecast_file = cfg.data_dir + cfg.load_forecast_file
+    if 'energy_price_buy_file' in cfg.keys():
+        cfg.energy_price_buy_file = cfg.data_dir + cfg.energy_price_buy_file
+    if 'energy_price_sell_file' in cfg.keys():
+        cfg.energy_price_sell_file = cfg.data_dir + cfg.energy_price_sell_file
+    if 'export_rate_beyond_net_metering_limit_file' in cfg.keys():
+        cfg.export_rate_beyond_net_metering_limit_file = cfg.data_dir \
+            + cfg.export_rate_beyond_net_metering_limit_file
 
     # outputs dir
     cfg.output_filename_stub = (f'{cfg.out_dir}{config_file.split(".")[0]}_v{__version__}_{note}')
@@ -100,12 +112,19 @@ def setup(config_file:str=None) -> dotdict:
     with open(cfg.tariff_file, 'r') as f:
         tariff = json.load(f)
         
-    load = pd.read_csv(cfg.load_file,
-                       index_col=0,
-                       parse_dates=True)[[cfg.load_col]]
-    load = load.resample('1h').mean()   
+    load = import_df(cfg.load_file,
+                 [cfg.load_col,cfg.load_persist_col],
+                 resamp=cfg.interval,
+                 return_df=True)
 
-    return cfg,tariff,load
+    if 'load_forecast_file' in cfg.keys():
+        forecast = import_df(cfg.load_forecast_file,
+                                 resamp=cfg.interval,
+                                 return_df=True)
+
+        return cfg,tariff,load,forecast
+    else:
+        return cfg,tariff,load
     
 def import_series(name,downsample=False):
     df = pd.read_csv(name,header=None)
@@ -115,20 +134,29 @@ def import_series(name,downsample=False):
         df = df.resample('1h').mean()                                            
     return list(df.values.flatten())
 
-def import_df(name,col,t0=None,scale=None,resamp=None):
+def import_df(name,col=None,t0=None,scale=None,resamp=None,return_df=False):
     df = pd.read_csv(name,index_col=0,comment='#',parse_dates=True)
     deltaT = int(df.index.to_series().diff().dropna().mean().seconds/60)
     L = int(60/deltaT * 8760)
-    if t0 is None:
-        df = df[col][:L]
-    else:
-        df = df[col][t0:][:L]
+    if col is not None:
+        df = df[col]
+        if isinstance(df,pd.Series):
+            df = df.to_frame()
+    if len(df) != L:
+        df = df.iloc[:L,:]
+    if t0 is not None:
+        df = df.loc[t0:]
     if scale is not None:
         df = df/scale
     if resamp is not None:
         df = df.resample(resamp).mean()
-    df[df<0] = 0
-    return list(df.values.flatten())
+    for col in df.columns:
+        df[col] = df[col].clip(lower=0)
+        df[df[col].values<0.000001] = 0          # reopt doesnt like scientific notation 1e-10 notation
+    if return_df:
+        return df
+    else:
+        return list(df.values.flatten())
 
 def import_json(name):
     with open(name, 'r') as fp:
@@ -512,14 +540,14 @@ def calc_monthly_peaks2(ds:pd.Series,peak_hours:list) -> pd.Series:
         return results
 
 def create_post(cfg:str,
+                load_kw_series:pd.Series=None,
+                solar_cf_series:pd.Series=None,
                 solar_kw:float=None,
                 batt_kw:float=None,
                 batt_h:float=None,
                 solar_kw_range=False,
                 batt_kw_range=False,
                 batt_h_range=False,
-                load_kw_series:pd.Series=None,
-                solar_kw_series:pd.Series=None,
                 load_col:str=None):
     
     # Defaults
@@ -532,22 +560,29 @@ def create_post(cfg:str,
     
     # Solar
     post['PV'].update({ "min_kw":solar_kw,
-                        "max_kw":solar_kw,            
+                        "max_kw":solar_kw})
+    
+    if solar_cf_series is None:
+        post['PV'].update({           
                         "production_factor_series":import_df(cfg.solar_file,
                                                              cfg.solar_col,
-                                                             resamp=cfg.solar_resamp,
-                                                             scale=cfg.solar_scaler)})
-    if solar_kw_series is not None:
-        post['PV'].update({"production_factor_series":list(solar_kw_series.values / solar_kw_series.max())})                           
+                                                             resamp=cfg.interval,
+                                                             scale=cfg.solar_capacity_kw)})
+    else:
+        post['PV'].update({"production_factor_series":list(solar_cf_series.values)})                           
+    
     if solar_kw_range:
-        post['PV'].update({ "min_kw":0})
+        post['PV'].update({ "min_kw":solar_kw_range})
         
     # Load
-    post['ElectricLoad'].update({'loads_kw':import_df(cfg.load_file,
-                                                      load_col,
-                                                      resamp=cfg.load_resamp),
-                                 'year':cfg.year})
-    if load_kw_series is not None:
+    if load_kw_series is None:
+        load = import_df(cfg.load_file,
+                        load_col,
+                        resamp=cfg.interval,
+                        return_df=True)
+        post['ElectricLoad'].update({'loads_kw':list(load.values.flatten()),
+                                    'year':load.index[0].year})
+    else:
         post['ElectricLoad'].update({'loads_kw':list(load_kw_series.values),
                                      'year':load_kw_series.index[0].year})
 
@@ -556,20 +591,33 @@ def create_post(cfg:str,
             "min_kw":batt_kw,               "max_kw":batt_kw,
             "min_kwh":batt_kw*batt_h,       "max_kwh":batt_kw*batt_h,})
     if batt_kw_range:
-        post['ElectricStorage'].update({"min_kw":0})
+        post['ElectricStorage'].update({"min_kw":batt_kw_range})
     if batt_h_range:
-        post['ElectricStorage'].update({"min_kwh":0})    
+        post['ElectricStorage'].update({"min_kwh":batt_h_range*batt_kw_range})    
 
 
     # Tariff
-    post["ElectricTariff"].update({"urdb_response":import_json(cfg.tariff_file),})
+    
     if 'energy_price_sell_constant' in cfg.keys():
         post["ElectricTariff"].update({
             'wholesale_rate':[cfg.energy_price_sell_constant]*(8760*post['Settings']['time_steps_per_hour'])})
     elif 'energy_price_sell_file' in cfg.keys():
         post["ElectricTariff"].update({
-            'wholesale_rate':import_df(cfg.data_dir+'/'+cfg.energy_price_sell_file,
+            'wholesale_rate':import_df(cfg.energy_price_sell_file,
                                        cfg.energy_price_sell_col)                       })
+    elif 'export_rate_beyond_net_metering_limit_file' in cfg.keys():
+        post['ElectricTariff'].update({
+            'export_rate_beyond_net_metering_limit':import_df(cfg.export_rate_beyond_net_metering_limit_file,
+                                                              cfg.export_rate_beyond_net_metering_limit_col,
+                                                              )})  
+
+    if 'energy_price_buy_file' in cfg.keys():                 
+        post["ElectricTariff"].update({
+            'tou_energy_rates_per_kwh':import_df(cfg.energy_price_buy_file,
+                                                 cfg.energy_price_buy_col,)                       })
+        
+    else:
+        post["ElectricTariff"].update({"urdb_response":import_json(cfg.tariff_file),})
     
     export_json(post,cfg.outdir)
     
@@ -580,10 +628,11 @@ def run_reopt(post, print_results=False,api_key=None):
     outputs_file_name = "results_file"
     root_url = "https://developer.nrel.gov/api/reopt/stable" # /stable == /v3 
     
-    tries = 1
+    tries = 0
     success = False
     
-    while not success and tries < 6:
+    while not success and tries < 10:
+        tries += 1
         print(f'Trying API request: {tries}')
     
         try:
@@ -601,12 +650,10 @@ def run_reopt(post, print_results=False,api_key=None):
                     if 'ElectricLoad' in api_response['outputs'].keys():    
                         success = True
                         print('Success!')
-        else:
-            tries += 1
                         
     if not success:
         print('API request failed')
-        quit()
+        sys.exit()
         api_response = None
     else:
         energy_cost =      api_response["outputs"]["ElectricTariff"]["year_one_energy_cost_before_tax"]
@@ -662,16 +709,22 @@ def build_price_vectors(index:pd.DatetimeIndex,tariff:dict,cfg:dict) -> pd.DataF
         prices['energy'].append(energy_rate)
         
     if 'energy_price_sell_constant' in cfg.keys():
-        sell_prices = [cfg.energy_price_sell_constant]*(8760*cfg['post']['Settings']['time_steps_per_hour'])
+        prices['sellback'] = [cfg.energy_price_sell_constant]*(8760*cfg['post']['Settings']['time_steps_per_hour'])
     
     elif 'energy_price_sell_file' in cfg.keys():
-        sell_prices = import_df(cfg.data_dir+'/'+cfg.energy_price_sell_file,
+        prices['sellback'] = import_df(cfg.energy_price_sell_file,
                                 cfg.energy_price_sell_col)
         
-    prices['sellback'] = sell_prices
+    elif 'export_rate_beyond_net_metering_limit_file' in cfg.keys():
+        prices['sellback'] = import_df(cfg.export_rate_beyond_net_metering_limit_file,
+                                cfg.export_rate_beyond_net_metering_limit_col)
+        
+    if 'energy_price_buy_file' in cfg.keys():                 
+        prices['energy']=import_df(cfg.energy_price_buy_file,
+                                    cfg.energy_price_buy_col,)                      
+        prices['demand']=[0]*len(prices['energy'])
 
-    prices = pd.DataFrame(prices,index=index)
-    return prices
+    return pd.DataFrame(prices,index=index)
 
 def calc_demand_charge(month:int,prices:pd.DataFrame,tariff:dict,load:pd.Series) -> float:
     if load.name is None:
@@ -685,7 +738,7 @@ def calc_demand_charge(month:int,prices:pd.DataFrame,tariff:dict,load:pd.Series)
         monthly_peaks = calc_monthly_peaks2(load,tou_hours)
 
         if monthly_peaks is not None:
-            demand_rate = prices.loc[monthly_peaks[f'{load.name} t'][month]].demand
+            demand_rate = prices.loc[monthly_peaks[f'{load.name} t'][month]]
             demand = monthly_peaks[f'{load.name} kw'][month]
         else: # this tou_level is not in effect for this month
             demand_rate = 0
@@ -731,9 +784,9 @@ def calc_retail_electric_cost(dispatch:pd.DataFrame,tariff:dict,cfg:dict,month=N
     energy_revenue = 0
     for month in months:
         prices = build_price_vectors(dispatch.index,tariff,cfg)
-        demand_charge += round(calc_demand_charge(month,prices,tariff,dispatch.loc[:,grid_col]),1)
-        energy_charge += round(calc_energy_charge(month,prices.energy,dispatch.loc[:,grid_col]),1)
-        energy_revenue += round(calc_energy_revenue(month,prices.sellback,dispatch.loc[:,grid_col]),1)
+        demand_charge += round(calc_demand_charge(month,prices.demand,tariff,dispatch.loc[:,grid_col]),2)
+        energy_charge += round(calc_energy_charge(month,prices.energy,dispatch.loc[:,grid_col]),2)
+        energy_revenue += round(calc_energy_revenue(month,prices.sellback,dispatch.loc[:,grid_col]),2)
     return dotdict({'energy':energy_charge,
             'demand':demand_charge,
             'sellback':energy_revenue,

@@ -7,7 +7,7 @@ import time
 from src.logger import log
 
 
-def poller(url, poll_interval=5):
+def poller(url, poll_interval=3):
     """
     Function for polling the REopt API results URL until status is not "Optimizing..."
     :param url: results url to poll
@@ -19,7 +19,10 @@ def poller(url, poll_interval=5):
     key_error_threshold = 3
     status = "Optimizing..."
     log.info("Polling {} for results with interval of {}s...".format(url, poll_interval))
-    while True:
+    tries = 0
+    while tries < 10:
+        tries += 1
+        print('Polling try',tries)
 
         resp = requests.get(url=url, verify=False)
         resp_dict = json.loads(resp.content)
@@ -42,7 +45,7 @@ def poller(url, poll_interval=5):
     return resp_dict
 
 
-def poller_v3(url, poll_interval=5):
+def poller_v3(url, poll_interval=3):
     """
     Function for polling the REopt API results URL until status is not "Optimizing..."
     :param url: results url to poll
@@ -54,7 +57,10 @@ def poller_v3(url, poll_interval=5):
     key_error_threshold = 3
     status = "Optimizing..."
     log.info("Polling {} for results with interval of {}s...".format(url, poll_interval))
-    while True:
+    tries = 0
+    while tries < 10:
+        tries += 1
+        print('Polling try',tries)
 
         resp = requests.get(url=url, verify=False)
         resp_dict = json.loads(resp.content)

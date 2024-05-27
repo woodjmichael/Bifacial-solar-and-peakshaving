@@ -5,36 +5,51 @@
 
 # if doing design optimization choose analysis_years>1
 
-version: 28
-note: 
+version: 30
+note: pun
 dev: false
 test: false
 
-data_dir: data/
+data_dir: data/ # all _file paths in this file referenced from here
 out_dir: outputs/
+interval: 1h
 
-year: 2019
+load_file: load/Jail_load_solar_1min_2021-4-21_2022-4-19_profilized.csv
+load_col: Load [kW]
+load_persist_col: Load Persist 7d [kW]
 
-load_file: load/2019_JPL_v4_fake_forecasts.csv
-load_col: True_kW
-load_resamp: 1h
+load_forecast_file: load/Jail_load_solar_1min_2021-4-21_2022-4-19_profilized_fake_forecast.csv
+load_forecast_col: Persist7d
 
-solar_file: solar/pasadena_128kwp_2019_15min.csv
-solar_col: 0w90
-solar_scaler: 128 # required to get to capacity factor
-solar_resamp: 1h
+solar_file: load/Jail_load_solar_1min_2021-4-21_2022-4-19_profilized.csv
+solar_col: Solar [kW]
+solar_capacity_kw: 130 # required to get to capacity factor
 
-solar_kw: 1000
-batt_kw: 1000
+solar_kw: 130
+batt_kw: 100
 batt_h: 2
+
 
 tariff_file: tariff/bayfield.json
 #tariff_file: tariff/PGE_E20_noflatdemand_nometer.json
 
+# if defined _buy_file prices used instead of tariff buy prices
+#energy_price_buy_file: tariff/network_prices_1h.csv
+#energy_price_buy_col: pun
+
+# if defined _sell_file prices used instead of tariff sell prices
+energy_price_sell_file: tariff/network_prices_1h.csv
+energy_price_sell_col: pun
 #energy_price_sell_file: tariff/PG&E NBT EEC Values 2024 Vintage - fake 2019.csv
-#energy_price_sell_col: Constant
+#energy_price_sell_col: Price
+
+# if defined _sell_constant prices used instead of tariff sell prices
 #energy_price_sell_constant: 0.07945
-energy_price_sell_constant: 0.05
+#energy_price_sell_constant: 0.05
+
+# if defined export_rate prices used instead of tariff sell prices
+#export_rate_beyond_net_metering_limit_file: tariff/network_prices_1h.csv
+#export_rate_beyond_net_metering_limit_col: pun
 
 # the following go directly in the the API post
 post: {
