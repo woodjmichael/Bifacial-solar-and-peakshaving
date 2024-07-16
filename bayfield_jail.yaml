@@ -6,7 +6,7 @@
 # if doing design optimization choose analysis_years>1
 
 version: 30
-note: pun
+note:
 dev: false
 test: false
 
@@ -33,19 +33,19 @@ batt_h: 2
 tariff_file: tariff/bayfield.json
 #tariff_file: tariff/PGE_E20_noflatdemand_nometer.json
 
+# if defined _sell_constant prices used instead of tariff sell prices
+energy_price_sell_constant: 0.05
+#energy_price_sell_constant: 0.07945
+
 # if defined _buy_file prices used instead of tariff buy prices
 #energy_price_buy_file: tariff/network_prices_1h.csv
 #energy_price_buy_col: pun
 
 # if defined _sell_file prices used instead of tariff sell prices
-energy_price_sell_file: tariff/network_prices_1h.csv
-energy_price_sell_col: pun
+#energy_price_sell_file: tariff/network_prices_1h.csv
+#energy_price_sell_col: pun
 #energy_price_sell_file: tariff/PG&E NBT EEC Values 2024 Vintage - fake 2019.csv
 #energy_price_sell_col: Price
-
-# if defined _sell_constant prices used instead of tariff sell prices
-#energy_price_sell_constant: 0.07945
-#energy_price_sell_constant: 0.05
 
 # if defined export_rate prices used instead of tariff sell prices
 #export_rate_beyond_net_metering_limit_file: tariff/network_prices_1h.csv
